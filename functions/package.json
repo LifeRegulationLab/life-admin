@@ -1,0 +1,20 @@
+{
+  "name": "dealt-with-functions",
+  "private": true,
+  "author": "Stuart Houlihan",
+  "main": "lib/index.js",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "copy-safety": "node -e \"const f=require('fs');f.writeFileSync('src/safety.ts','// Copied from src/lib/helper/safety.ts by \\\"npm run copy-safety\\\". Do not edit here; a test checks the two match.\\n'+f.readFileSync('../src/lib/helper/safety.ts','utf8'))\"",
+    "build": "tsc -p ."
+  },
+  "dependencies": {
+    "firebase-admin": "^13.5.0",
+    "firebase-functions": "^6.4.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

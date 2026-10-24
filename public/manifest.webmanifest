@@ -1,0 +1,11 @@
+{
+  "name": "Dealt With",
+  "short_name": "Dealt With",
+  "description": "Letters, bills, forms, renewals and calls, dealt with one step at a time.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f1ea",
+  "theme_color": "#f4f1ea",
+  "lang": "en-GB",
+  "icons": [{ "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
