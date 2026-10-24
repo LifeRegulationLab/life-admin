@@ -1,5 +1,6 @@
 import { initializeApp, type FirebaseApp } from 'firebase/app';
-import { getAuth, type Auth } from 'firebase/auth';
+import { Capacitor } from '@capacitor/core';
+import { getAuth, indexedDBLocalPersistence, initializeAuth, type Auth } from 'firebase/auth';
 import {
   initializeFirestore,
   persistentLocalCache,
@@ -38,6 +39,9 @@ export function firebase(): { app: FirebaseApp; auth: Auth; db: Firestore } {
   } catch {
     db = initializeFirestore(app, {});
   }
-  cached = { app, auth: getAuth(app), db };
+  // In the iPhone app, getAuth waits for a sign-in window the app never uses and can hang, so
+  // sign-in is set up without it there.
+  const auth = Capacitor.isNativePlatform() ? initializeAuth(app, { persistence: indexedDBLocalPersistence }) : getAuth(app);
+  cached = { app, auth, db };
   return cached;
 }

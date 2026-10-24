@@ -7,7 +7,7 @@ import { firebaseConfigured } from '../lib/firebase/app';
 import { deleteEverything, openBilling, signOut } from '../lib/firebase/account';
 import { helperAvailable } from '../lib/helper/client';
 import type { ReadAloud as ReadAloudSetting, Settings, TextSize } from '../lib/model/types';
-import { saveFile } from '../lib/shell';
+import { inShell, saveFile } from '../lib/shell';
 import { recordedVoiceAvailable } from '../lib/speech';
 import { COLLECTIONS, DOCS } from '../lib/store/backend';
 import { clear } from '../lib/store/blobs';
@@ -141,7 +141,7 @@ export function Me() {
             {plus ? (
               <>
                 <p>You have Plus{paid ? '' : ' while you test the app'}. The helper and the recorded voice are open to you.</p>
-                {paid ? (
+                {paid && !inShell() ? (
                   <button type="button" className="btn self-start" onClick={() => billing('portal')}>
                     Change card or cancel Plus
                   </button>
@@ -151,7 +151,9 @@ export function Me() {
               <>
                 <p>Plus adds the helper, which explains letters in plain words, drafts replies, writes call scripts and answers questions. It also adds the calm recorded voice for read aloud.</p>
                 <p className="muted text-sm">Paid monthly, cancel any time. Everything else in the app stays free.</p>
-                {user ? (
+                {inShell() ? (
+                  <p className="text-sm">Plus cannot be bought in the iPhone app yet.</p>
+                ) : user ? (
                   <button type="button" className="btn btn-primary self-start" onClick={() => billing('checkout')}>
                     Get Plus
                   </button>
