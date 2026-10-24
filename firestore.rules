@@ -1,0 +1,32 @@
+rules_version = '2';
+
+// Dealt With. Each person's things are theirs alone. This project serves this app only, so no
+// other Life Regulation Lab app can read or delete them. A share is one step handed to a
+// supporter by a long random link: anyone with the link can read it until it runs out and write
+// back once, and only the owner can list, make or delete their shares.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+
+    match /users/{uid}/{rest=**} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+
+    match /shares/{code} {
+      allow get: if resource.data.expiresAt > request.time.toMillis()
+        || (signedIn() && resource.data.owner == request.auth.uid);
+      allow list: if signedIn() && resource.data.owner == request.auth.uid;
+      allow create: if signedIn()
+        && request.resource.data.owner == request.auth.uid
+        && request.resource.data.code == code
+        && code.size() >= 20
+        && request.resource.data.expiresAt <= request.time.toMillis() + 15 * 24 * 60 * 60 * 1000;
+      allow update: if resource.data.expiresAt > request.time.toMillis()
+        && !('repliedAt' in resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reply', 'helperName', 'repliedAt'])
+        && request.resource.data.reply is string && request.resource.data.reply.size() <= 4000
+        && request.resource.data.helperName is string && request.resource.data.helperName.size() <= 80;
+      allow delete: if signedIn() && resource.data.owner == request.auth.uid;
+    }
+  }
+}

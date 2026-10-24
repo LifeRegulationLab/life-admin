@@ -1,0 +1,174 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/inter';
+
+:root {
+  color-scheme: light;
+  /* Life Regulation Lab: ink, off-white and one amber accent. */
+  --page: #f4f1ea;
+  --ink: #0f1420;
+  --muted: #565f72;
+  --line: #e2ddd0;
+  --line-strong: #cfc8b8;
+  --accent: #f2b544;
+  --accent-soft: #fbecc8;
+  --panel: #fffdf8;
+  --hero: #0f1420;
+  --on-hero: #f4f1ea;
+  --warn: #8a3b12;
+  --warn-soft: #fbe3d4;
+  --done: #2f6b4f;
+  --shadow: 0 1px 2px rgb(15 20 32 / 0.05), 0 4px 16px rgb(15 20 32 / 0.06);
+  font-family: 'Inter Variable', Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --page: #0b0f18;
+    --ink: #f4f1ea;
+    --muted: #a3abbb;
+    --line: #222838;
+    --line-strong: #323a4e;
+    --accent-soft: #3a2f17;
+    --panel: #131927;
+    --hero: #1a2131;
+    --warn: #f3b08a;
+    --warn-soft: #3a2116;
+    --done: #7fc4a0;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+  }
+}
+
+html[data-text='large'] {
+  font-size: 112.5%;
+}
+html[data-text='larger'] {
+  font-size: 125%;
+}
+
+body {
+  @apply min-h-dvh antialiased;
+  background-color: var(--page);
+  color: var(--ink);
+  line-height: 1.55;
+  -webkit-tap-highlight-color: transparent;
+}
+
+h1,
+h2,
+h3 {
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.card {
+  @apply rounded-2xl p-4;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+
+.btn {
+  @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 py-2 font-medium;
+  border: 1px solid var(--line-strong);
+  background: var(--panel);
+  color: var(--ink);
+}
+.btn:disabled {
+  opacity: 0.5;
+}
+.btn-primary {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--page);
+}
+.btn-accent {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #0f1420;
+}
+.btn-warn {
+  border-color: var(--warn);
+  color: var(--warn);
+}
+.btn:focus-visible,
+.chip:focus-visible,
+.field:focus-visible,
+a:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.field {
+  @apply w-full rounded-xl px-3 py-2.5;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  color: var(--ink);
+}
+textarea.field {
+  min-height: 5.5rem;
+}
+
+.label {
+  @apply mb-1 block text-sm font-medium;
+}
+
+.chip {
+  @apply inline-flex min-h-10 items-center rounded-full px-3 py-1.5 text-sm;
+  border: 1px solid var(--line-strong);
+  background: var(--panel);
+  color: var(--ink);
+}
+.chip[aria-pressed='true'] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+.warnbox {
+  @apply rounded-xl p-3 text-sm;
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.hero {
+  background: var(--hero);
+  color: var(--on-hero);
+}
+
+.tab {
+  @apply flex min-h-14 flex-1 flex-col items-center justify-center text-xs;
+  color: var(--muted);
+}
+.tab[aria-current='page'] {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.late {
+  color: var(--warn);
+  font-weight: 600;
+}
+
+.quote {
+  @apply rounded-lg px-3 py-2 text-sm;
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+}
+
+/* Easy-read: a little more space and bigger type for the main words. */
+html[data-easy='on'] body {
+  line-height: 1.7;
+}
+html[data-easy='on'] .btn {
+  min-height: 3.25rem;
+  font-size: 1.05rem;
+}
+
+a {
+  text-underline-offset: 3px;
+}
