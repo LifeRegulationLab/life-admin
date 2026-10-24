@@ -3,7 +3,7 @@ import { itemName, ItemRow } from '../components/ItemRow';
 import { Picture } from '../components/Picture';
 import { Card, Empty, Page } from '../components/ui';
 import { ReadAloud, useEasy } from '../components/voice';
-import { dueOf, lists, whenWords } from '../lib/logic/items';
+import { dueOf, lists, notToMiss, whenWords } from '../lib/logic/items';
 import { fmtDate } from '../lib/papers/record';
 import { useStore } from '../lib/store/StoreProvider';
 import { useNow } from '../lib/time';
@@ -19,10 +19,13 @@ export function Today() {
   const l = lists(data.items, now);
   const coming = data.renewals.filter((r) => !r.itemId && r.dueAt - now < SOON).sort((a, b) => a.dueAt - b.dueAt);
   const first = l.next[0];
+  const onScreen = justNext ? l.next.slice(0, 1) : l.next;
+  const dates = notToMiss(data.items, onScreen.map((i) => i.id), now);
 
   const summary = [
     l.next.length === 0 ? 'Nothing to deal with just now.' : l.next.length === 1 ? 'One thing to deal with.' : `${l.next.length} things to deal with.`,
     first ? `The nearest is ${itemName(first)}. ${whenWords(dueOf(first), now)}.` : '',
+    dates.length ? `${dates.length === 1 ? 'One date' : `${dates.length} dates`} not to miss.` : '',
     l.waiting.length ? `Waiting for a reply on ${l.waiting.length}.` : '',
   ]
     .filter(Boolean)
@@ -63,12 +66,24 @@ export function Today() {
           {justNext ? 'Just the next thing' : easy ? 'Things to do' : 'To deal with'}
         </h2>
         {l.next.length ? (
-          (justNext ? l.next.slice(0, 1) : l.next).map((i) => <ItemRow key={i.id} item={i} now={now} />)
+          onScreen.map((i) => <ItemRow key={i.id} item={i} now={now} />)
         ) : (
           <Empty>Nothing to deal with. When a letter, bill or form comes, add it here.</Empty>
         )}
         {justNext && l.next.length > 1 ? <p className="muted text-sm">The others are kept safe. Untick the box above to see them.</p> : null}
       </section>
+
+      {dates.length ? (
+        <section className="flex flex-col gap-3" aria-labelledby="dates">
+          <h2 id="dates" className="text-lg font-semibold">
+            {dates.length === 1 ? 'A date not to miss' : 'Dates not to miss'}
+          </h2>
+          <p className="muted -mt-2 text-sm">{justNext ? 'Kept here even on a low day, because the date is close.' : 'Still in the pile to sort, but the date is close.'}</p>
+          {dates.map((i) => (
+            <ItemRow key={i.id} item={i} now={now} />
+          ))}
+        </section>
+      ) : null}
 
       {!justNext && l.waiting.length ? (
         <section className="flex flex-col gap-3" aria-labelledby="waiting">

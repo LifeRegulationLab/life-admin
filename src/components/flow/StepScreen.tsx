@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { STEP_PICTURE, callScript, replyDraft } from '../../lib/content/steps';
+import { CALL_READY_TITLE, STEP_PICTURE, callScript, replyDraft } from '../../lib/content/steps';
 import { callScriptFor, draftReply, helperAvailable } from '../../lib/helper/client';
 import { toIcs } from '../../lib/logic/calendar';
 import { readFacts } from '../../lib/logic/facts';
+import { haveReady } from '../../lib/logic/ready';
 import { addRecord, completeStep, DAY, startWaiting, updateStep } from '../../lib/logic/items';
 import type { Item, Step } from '../../lib/model/types';
 import { fmtDate } from '../../lib/papers/record';
@@ -45,6 +46,7 @@ export function StepScreen({ item, step, index, onDone }: { item: Item; step: St
   const [msg, setMsg] = useState('');
   const canHelp = settings.helperOn && helperAvailable() && Boolean(user) && plus;
   const ask = item.understanding?.ask ?? '';
+  const ready = haveReady(item);
 
   const withFields = (base: Item): Item =>
     updateStep(base, step.id, {
@@ -109,7 +111,8 @@ export function StepScreen({ item, step, index, onDone }: { item: Item; step: St
   };
 
   const help = say(easy, step.help, step.easyHelp);
-  const spoken = `${step.title}. ${help}`;
+  const forCall = step.type === 'call' || step.title === CALL_READY_TITLE;
+  const spoken = `${step.title}. ${help}${forCall ? ` Have these ready. ${ready.join('. ')}.` : ''}`;
 
   return (
     <div className="flex flex-col gap-4">
@@ -130,6 +133,17 @@ export function StepScreen({ item, step, index, onDone }: { item: Item; step: St
         </Card>
       ) : null}
       {ask && index === 0 ? <p className="muted text-sm">They want you to: {ask}</p> : null}
+
+      {forCall ? (
+        <Card className="flex flex-col gap-2">
+          <h3 className="font-semibold">{easy ? 'Have these ready' : 'Have ready for the call'}</h3>
+          <ul className="flex list-disc flex-col gap-1 pl-5">
+            {ready.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        </Card>
+      ) : null}
 
       {step.type === 'reply' || step.type === 'call' ? (
         <Card className="flex flex-col gap-3">

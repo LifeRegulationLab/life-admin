@@ -69,3 +69,36 @@ describe('within so many days', () => {
     expect(findWithin('Please reply soon.', today)).toBeUndefined();
   });
 });
+
+describe('check this', () => {
+  it('says when the day and month could be either way round, and not when they could not', () => {
+    expect(findDates('Due 03/04/2027', today)[0]?.unsure).toContain('either way round');
+    expect(findDates('Due 25/04/2027', today)[0]?.unsure).toBeUndefined();
+    expect(findDates('Due 21 November 2026', today)[0]?.unsure).toBeUndefined();
+  });
+
+  it('says when the year is a guess', () => {
+    expect(findDates('by 3 January', today)[0]?.unsure).toContain('No year');
+  });
+
+  it('says when there is more than one deadline date', async () => {
+    const { findDeadline } = await import('../lib/logic/facts');
+    const d = findDeadline('Reply by 21 November 2026. Payment is due by 30 November 2026.', today);
+    expect(d?.value).toBe(day(2026, 11, 21));
+    expect(d?.unsure).toContain('more than one date');
+    expect(readFacts(COUNCIL_LETTER, today).deadline?.unsure).toBeUndefined();
+  });
+
+  it('says how a "within" deadline was counted', async () => {
+    const { findWithin } = await import('../lib/logic/facts');
+    expect(findWithin('Date: 20 October 2026\nReply within 28 days.', today)?.unsure).toContain('counted from the date on the letter');
+    expect(findWithin('Reply within 28 days.', today)?.unsure).toContain('counted from the day it was added');
+  });
+
+  it('flags several amounts, and references with look-alike letters', () => {
+    expect(findAmounts('Total £120.00, of which £20.00 is a fee')[0]?.unsure).toContain('more than one amount');
+    expect(findAmounts('Amount due £1,204.50')[0]?.unsure).toBeUndefined();
+    expect(findReferences('Our ref: WO/2O931')[0]?.unsure).toContain('look like numbers');
+    expect(findReferences('Our ref: WH/20931')[0]?.unsure).toBeUndefined();
+  });
+});

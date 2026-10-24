@@ -8,6 +8,8 @@ export interface Found<T> {
   value: T;
   /** The words in the letter. */
   quote: string;
+  /** Why this reading may be wrong, when there is a reason to think so. Shown as "Check this". */
+  unsure?: string;
 }
 
 export interface Facts {
@@ -46,10 +48,10 @@ function at(y: number, m: number, d: number): number | undefined {
 export function findDates(text: string, today = new Date()): Found<number>[] {
   const out: Found<number>[] = [];
   const seen = new Set<number>();
-  const push = (value: number | undefined, index: number, length: number) => {
+  const push = (value: number | undefined, index: number, length: number, unsure?: string) => {
     if (value === undefined || seen.has(value)) return;
     seen.add(value);
-    out.push({ value, quote: lineAround(text, index, length) });
+    out.push({ value, quote: lineAround(text, index, length), ...(unsure ? { unsure } : {}) });
   };
   // 21 November 2026, 21st Nov 2026, 21 November
   const long = new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?${MONTH_RE}\\.?,?(?:\\s+(\\d{4}))?\\b`, 'gi');
@@ -58,7 +60,7 @@ export function findDates(text: string, today = new Date()): Found<number>[] {
     const month = monthIndex(m[2] ?? '');
     let year = m[3] ? Number(m[3]) : today.getFullYear();
     if (!m[3] && at(year, month, day) !== undefined && (at(year, month, day) ?? 0) < today.getTime() - 60 * 864e5) year += 1;
-    push(at(year, month, day), m.index, m[0].length);
+    push(at(year, month, day), m.index, m[0].length, m[3] ? undefined : 'No year is written, so the year is a guess.');
   }
   // November 21, 2026
   const us = new RegExp(`\\b${MONTH_RE}\\s+(\\d{1,2})(?:st|nd|rd|th)?,?\\s+(\\d{4})\\b`, 'gi');
@@ -66,7 +68,11 @@ export function findDates(text: string, today = new Date()): Found<number>[] {
   // 21/11/2026, 21.11.26, 21-11-2026 (day first, as in the UK)
   for (const m of text.matchAll(/\b(\d{1,2})[/.-](\d{1,2})[/.-](\d{2}|\d{4})\b/g)) {
     const y = Number(m[3]);
-    push(at(y < 100 ? 2000 + y : y, Number(m[2]) - 1, Number(m[1])), m.index, m[0].length);
+    const d = Number(m[1]);
+    const mo = Number(m[2]);
+    // 04/05/2027 could be 4 May or 5 April. UK letters put the day first, but not every sender is in the UK.
+    const unsure = d <= 12 && mo <= 12 && d !== mo ? 'The day and month could be either way round. This reads the day first, as UK letters do.' : undefined;
+    push(at(y < 100 ? 2000 + y : y, mo - 1, d), m.index, m[0].length, unsure);
   }
   return out.sort((a, b) => a.value - b.value);
 }
@@ -99,6 +105,7 @@ export function findWithin(text: string, today = new Date()): Found<number> | un
   if (!n) return undefined;
   const dated = findDates(text, today).filter((d) => d.value <= today.getTime() + 864e5);
   const from = dated[0]?.value ?? new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12).getTime();
+  const counted = dated[0] ? 'the date on the letter' : 'the day it was added';
   const unit = (m[3] ?? '').toLowerCase();
   let value: number;
   if (unit.startsWith('month')) {
@@ -108,14 +115,19 @@ export function findWithin(text: string, today = new Date()): Found<number> | un
   } else if (unit.startsWith('week')) value = from + n * 7 * 864e5;
   else if ((m[2] ?? '').toLowerCase().startsWith('working')) value = addWorkingDays(from, n);
   else value = from + n * 864e5;
-  return { value, quote: lineAround(text, m.index, m[0].length) };
+  return { value, quote: lineAround(text, m.index, m[0].length), unsure: `Worked out from "${m[0]}", counted from ${counted}. Check the count on the letter.` };
 }
 
 const DEADLINE_WORDS = /\b(by|before|no later than|deadline|reply|respond|return|due|must|within|until|expires?|pay)\b/i;
 
 export function findDeadline(text: string, today = new Date()): Found<number> | undefined {
   const dates = findDates(text, today).filter((d) => d.value >= today.getTime() - 864e5);
-  return dates.find((d) => DEADLINE_WORDS.test(d.quote)) ?? findWithin(text, today);
+  const candidates = dates.filter((d) => DEADLINE_WORDS.test(d.quote));
+  const first = candidates[0];
+  if (!first) return findWithin(text, today);
+  if (candidates.length < 2) return first;
+  const more = 'There is more than one date in it. Check which one is the deadline.';
+  return { ...first, unsure: first.unsure ? `${more} ${first.unsure}` : more };
 }
 
 export function findAmounts(text: string): Found<string>[] {
@@ -124,7 +136,8 @@ export function findAmounts(text: string): Found<string>[] {
     const value = m[0].replace(/\s/g, '');
     if (!out.some((o) => o.value === value)) out.push({ value, quote: lineAround(text, m.index, m[0].length) });
   }
-  return out;
+  if (out.length < 2) return out;
+  return out.map((o) => ({ ...o, unsure: 'There is more than one amount in it. Check which one they want.' }));
 }
 
 const REF_LABEL = /\b(reference|ref|account(?: number| no\.?)?|customer number|claim number|case number|policy number|our ref|your ref|national insurance number|NI number|tenancy reference|invoice number)\b[\s.:#-]*(?:is\s+)?/gi;
@@ -137,7 +150,9 @@ export function findReferences(text: string): Found<string>[] {
     const value = /^((?:[A-Z]{1,3}[ ]?)?[A-Z0-9/-]*\d[A-Z0-9/-]*(?: [A-Z0-9/-]*\d[A-Z0-9/-]*)*(?: [A-D]\b)?)/i.exec(rest)?.[1]?.trim();
     if (!value || value.length < 3) continue;
     const clean = value.replace(/\s{2,}/g, ' ');
-    if (!out.some((o) => o.value === clean)) out.push({ value: clean, quote: lineAround(text, m.index, m[0].length + clean.length) });
+    // A photo can turn 0 into O, or 1 into I or l. A reference with both letters and numbers is worth checking.
+    const unsure = /[OIl]/.test(clean) && /\d/.test(clean) ? 'It has letters that look like numbers, such as O and 0, or I and 1. Check each one on the letter.' : undefined;
+    if (!out.some((o) => o.value === clean)) out.push({ value: clean, quote: lineAround(text, m.index, m[0].length + clean.length), ...(unsure ? { unsure } : {}) });
   }
   return out;
 }

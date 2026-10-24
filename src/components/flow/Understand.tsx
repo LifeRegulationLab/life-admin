@@ -10,7 +10,7 @@ import { useStore } from '../../lib/store/StoreProvider';
 import { Thumb } from '../Capture';
 import { Card, Choice, fromLocalInput, Text, toDateInput } from '../ui';
 import { clock } from '../../lib/time';
-import { FoundFact, OnTheLetter } from '../OnTheLetter';
+import { FoundFact, OnTheLetter, Unsure } from '../OnTheLetter';
 import { PlusNote } from '../PlusNote';
 import { Words } from '../Words';
 import { ReadAloud, say, useEasy } from '../voice';
@@ -202,8 +202,9 @@ export function Understand({ item, onNext, onDone }: { item: Item; onNext: () =>
                 Use {fmtDate(facts.deadline.value)}, found: “{facts.deadline.quote}”
               </button>
             ) : facts.deadline ? (
-              <p className="muted text-sm">Found: “{facts.deadline.quote}”. Check this on the letter.</p>
+              <p className="muted text-sm">Found: “{facts.deadline.quote}”</p>
             ) : null}
+            {facts.deadline ? <Unsure reason={facts.deadline.unsure} /> : null}
             {facts.deadline ? <OnTheLetter item={item} quote={facts.deadline.quote} /> : null}
             <Text label={easy ? 'What happens if you do nothing?' : 'What happens if nothing is done? (optional)'} value={consequence} onChange={setConsequence} />
           </>
@@ -215,13 +216,13 @@ export function Understand({ item, onNext, onDone }: { item: Item; onNext: () =>
           <h2 className="font-semibold">Found in it</h2>
           <div className="flex flex-col gap-2">
             {facts.amounts.slice(0, 3).map((a) => (
-              <FoundFact key={`a${a.value}`} item={item} label="Amount" value={a.value} quote={a.quote} />
+              <FoundFact key={`a${a.value}`} item={item} label="Amount" value={a.value} quote={a.quote} unsure={a.unsure} />
             ))}
             {facts.references.slice(0, 3).map((r) => (
-              <FoundFact key={`r${r.value}`} item={item} label="Reference" value={r.value} quote={r.quote} />
+              <FoundFact key={`r${r.value}`} item={item} label="Reference" value={r.value} quote={r.quote} unsure={r.unsure} />
             ))}
             {facts.phones.slice(0, 3).map((p) => (
-              <FoundFact key={`p${p.value}`} item={item} label="Phone" value={p.value} quote={p.quote} href={`tel:${p.value.replace(/\s/g, '')}`} />
+              <FoundFact key={`p${p.value}`} item={item} label="Phone" value={p.value} quote={p.quote} unsure={p.unsure} href={`tel:${p.value.replace(/\s/g, '')}`} />
             ))}
           </div>
         </Card>
