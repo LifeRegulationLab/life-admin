@@ -45,6 +45,9 @@ export const STEP_PICTURE: Record<StepType, PictureName> = {
   custom: 'other',
 };
 
+/** The step before a call. Its screen lists what to have ready, taken from the letter. */
+export const CALL_READY_TITLE = 'Have things ready for the call';
+
 const T = {
   gather: {
     type: 'find',
@@ -145,7 +148,7 @@ const T = {
   },
   callReady: {
     type: 'find',
-    title: 'Have things ready for the call',
+    title: CALL_READY_TITLE,
     help: 'Have the letter, any reference number, a pen, and your questions in front of you. Calls are often shorter early in the morning.',
     easyHelp: 'Get ready. The letter, the number, a pen.',
   },

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { Capture } from '../components/Capture';
+import { Unsure } from '../components/OnTheLetter';
 import { ScamWarning } from '../components/ScamWarning';
 import { Picture } from '../components/Picture';
 import { Card, Page, Text } from '../components/ui';
@@ -89,6 +90,7 @@ export function AddKind() {
           <h2 className="font-semibold">{text.trim() ? 'Check these' : 'Or just give it a name'}</h2>
           <Text label="Who it is from" value={shownFrom} onChange={(v) => { setFrom(v); setTouched((t) => ({ ...t, from: true })); }} />
           <Text label="Their reference" value={shownRef} onChange={(v) => { setReference(v); setTouched((t) => ({ ...t, reference: true })); }} />
+          {!touched.reference && !reference && facts.references[0]?.unsure ? <Unsure reason={facts.references[0].unsure} /> : null}
           <Text label="A short name for it (optional)" value={title} onChange={setTitle} placeholder={shownFrom ? `${info.name} from ${shownFrom}` : ''} />
         </Card>
       ) : null}

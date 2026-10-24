@@ -60,7 +60,7 @@ export function OnTheLetter({ item, quote }: { item: Item; quote: string }) {
 }
 
 /** A fact the app found, with the words it came from and an honest label. */
-export function FoundFact({ item, label, value, quote, href }: { item: Item; label: string; value: string; quote?: string; href?: string }) {
+export function FoundFact({ item, label, value, quote, unsure, href }: { item: Item; label: string; value: string; quote?: string; unsure?: string | undefined; href?: string }) {
   return (
     <div className="flex flex-col gap-1 border-t border-[var(--line)] pt-2 first:border-0 first:pt-0">
       <p>
@@ -68,8 +68,13 @@ export function FoundFact({ item, label, value, quote, href }: { item: Item; lab
         {href ? <a href={href}>{value}</a> : <span className="font-semibold">{value}</span>}
       </p>
       {quote ? <blockquote className="quote text-sm">{quote}</blockquote> : null}
-      <p className="muted text-xs">Read by the app. Check this on the letter.</p>
+      <Unsure reason={unsure} />
       {quote ? <OnTheLetter item={item} quote={quote} /> : null}
     </div>
   );
+}
+
+/** "Check this", with the reason, when there is one. Otherwise the usual quiet line. */
+export function Unsure({ reason }: { reason?: string | undefined }) {
+  return reason ? <p className="warnbox text-sm">Check this: {reason}</p> : <p className="muted text-xs">Read by the app. Check this on the letter.</p>;
 }

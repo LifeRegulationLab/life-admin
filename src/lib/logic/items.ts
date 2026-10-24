@@ -143,6 +143,24 @@ export function lists(items: readonly Item[], now = Date.now()): Lists {
   };
 }
 
+/**
+ * Dates that must not slip out of sight on a calm screen: things not yet dealt with whose date has
+ * passed or is within three days, which the list on screen does not already show. Pile-of-post
+ * items still to sort are included, because a deadline found in them is real before they are sorted.
+ */
+export function notToMiss(items: readonly Item[], shown: readonly string[], now = Date.now(), days = 3): Item[] {
+  const end = new Date(now);
+  end.setHours(23, 59, 59, 999);
+  const limit = end.getTime() + days * DAY;
+  return items
+    .filter((i) => i.status !== 'done' && i.status !== 'waiting' && !shown.includes(i.id))
+    .filter((i) => {
+      const due = dueOf(i);
+      return due !== undefined && due <= limit;
+    })
+    .sort((a, b) => (dueOf(a) ?? 0) - (dueOf(b) ?? 0));
+}
+
 /** Words for how near a date is. */
 export function whenWords(due: number | undefined, now = Date.now()): string {
   if (due === undefined) return 'No date';
