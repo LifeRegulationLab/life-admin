@@ -12,7 +12,8 @@ const SOON = 60 * 24 * 60 * 60 * 1000;
 
 /** What needs doing, nearest date first. Waiting for them is kept apart, so it never looks like more to do. */
 export function Today() {
-  const { data } = useStore();
+  const { data, saveSettings } = useStore();
+  const justNext = data.settings.justNext;
   const now = useNow();
   const easy = useEasy();
   const l = lists(data.items, now);
@@ -41,7 +42,7 @@ export function Today() {
         </Link>
       </div>
 
-      {l.unsorted.length ? (
+      {!justNext && l.unsorted.length ? (
         <Card className="flex items-center justify-between gap-3">
           <p>
             {l.unsorted.length === 1 ? 'One thing' : `${l.unsorted.length} things`} from the pile still to look at.
@@ -52,14 +53,24 @@ export function Today() {
         </Card>
       ) : null}
 
+      <label className="flex items-center gap-3">
+        <input type="checkbox" checked={justNext} onChange={(e) => void saveSettings({ ...data.settings, justNext: e.target.checked })} />
+        <span>Low on energy today: show me just the next thing</span>
+      </label>
+
       <section className="flex flex-col gap-3" aria-labelledby="todo">
         <h2 id="todo" className="text-lg font-semibold">
-          {easy ? 'Things to do' : 'To deal with'}
+          {justNext ? 'Just the next thing' : easy ? 'Things to do' : 'To deal with'}
         </h2>
-        {l.next.length ? l.next.map((i) => <ItemRow key={i.id} item={i} now={now} />) : <Empty>Nothing to deal with. When a letter, bill or form comes, add it here.</Empty>}
+        {l.next.length ? (
+          (justNext ? l.next.slice(0, 1) : l.next).map((i) => <ItemRow key={i.id} item={i} now={now} />)
+        ) : (
+          <Empty>Nothing to deal with. When a letter, bill or form comes, add it here.</Empty>
+        )}
+        {justNext && l.next.length > 1 ? <p className="muted text-sm">The others are kept safe. Untick the box above to see them.</p> : null}
       </section>
 
-      {l.waiting.length ? (
+      {!justNext && l.waiting.length ? (
         <section className="flex flex-col gap-3" aria-labelledby="waiting">
           <h2 id="waiting" className="text-lg font-semibold">
             Waiting for them
@@ -71,7 +82,7 @@ export function Today() {
         </section>
       ) : null}
 
-      {coming.length ? (
+      {!justNext && coming.length ? (
         <section className="flex flex-col gap-3" aria-labelledby="coming">
           <h2 id="coming" className="text-lg font-semibold">
             Coming up

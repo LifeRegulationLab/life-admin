@@ -16,4 +16,9 @@ describe('reminders', () => {
     expect(new Set(r.map((x) => x.id)).size).toBe(r.length);
     expect(r.every((x) => new Date(x.at).getHours() === 9)).toBe(true);
   });
+
+  it('uses the days the person chose', () => {
+    const due = newItem('bill', { title: 'Water', dueAt: NOW + 10 * DAY }, NOW);
+    expect(remindersFor([due], [], NOW, [7, 1]).map((x) => x.title)).toEqual(['Due in 7 days: Water', 'Due tomorrow: Water']);
+  });
 });

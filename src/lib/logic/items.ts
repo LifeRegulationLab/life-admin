@@ -149,8 +149,9 @@ export function whenWords(due: number | undefined, now = Date.now()): string {
   const start = new Date(now);
   start.setHours(0, 0, 0, 0);
   const days = Math.round((new Date(due).setHours(0, 0, 0, 0) - start.getTime()) / DAY);
-  if (days < -1) return `${-days} days late`;
-  if (days === -1) return 'Was due yesterday';
+  // A passed date is said plainly, without counting missed days.
+  if (days < -1) return `The date was ${new Date(due).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`;
+  if (days === -1) return 'The date was yesterday';
   if (days === 0) return 'Due today';
   if (days === 1) return 'Due tomorrow';
   if (days < 14) return `Due in ${days} days`;
@@ -167,3 +168,14 @@ export function itemFromRenewal(r: Renewal, now = Date.now()): Item {
 }
 
 export { DAY };
+
+/** Links two things both ways, or unlinks them. Returns both, changed. */
+export function link(a: Item, b: Item, on: boolean, now = Date.now()): [Item, Item] {
+  const set = (x: Item, id: string): Item => {
+    const links = new Set(x.links ?? []);
+    if (on) links.add(id);
+    else links.delete(id);
+    return { ...x, links: [...links], updatedAt: now };
+  };
+  return [set(a, b.id), set(b, a.id)];
+}

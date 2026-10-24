@@ -12,7 +12,24 @@ interface StepTemplate {
   title: string;
   help: string;
   easyHelp: string;
+  /** Roughly how long it usually takes, when it is worth saying. */
+  minutes?: number;
 }
+
+/** Rough times, so a step can be fitted into a gap in the day. Waiting and going somewhere have none. */
+export const USUAL_MINUTES: Record<StepType, number | undefined> = {
+  find: 15,
+  reply: 20,
+  send: 10,
+  proof: 5,
+  call: 15,
+  pay: 10,
+  book: 10,
+  attend: undefined,
+  wait: undefined,
+  check: 10,
+  custom: undefined,
+};
 
 export const STEP_PICTURE: Record<StepType, PictureName> = {
   find: 'find',
@@ -86,6 +103,7 @@ const T = {
   formFill: {
     type: 'custom',
     title: 'Fill it in, one part at a time',
+    minutes: 30,
     help: 'Do one section, then stop if you need to. Write "Where I got to" when you stop, so you know where to start again. If a question does not apply to you, say so rather than leaving it blank.',
     easyHelp: 'Fill in one part. You can stop and come back.',
   },
@@ -168,7 +186,8 @@ export const CHASE_STEP: StepTemplate = {
 export const EXTRA_STEPS: StepTemplate[] = [T.gather, T.reply, T.send, T.proof, T.call, T.pay, T.book, T.attend, T.wait, T.doIt];
 
 export function makeStep(t: StepTemplate): Step {
-  return { id: newId(), type: t.type, title: t.title, help: t.help, easyHelp: t.easyHelp, done: false, note: '' };
+  const minutes = t.minutes ?? USUAL_MINUTES[t.type];
+  return { id: newId(), type: t.type, title: t.title, help: t.help, easyHelp: t.easyHelp, done: false, note: '', ...(minutes ? { minutes } : {}) };
 }
 
 export function stepsFor(kind: Kind): Step[] {

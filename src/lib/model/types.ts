@@ -21,6 +21,10 @@ export interface Understanding {
   plain: string;
   /** The same in easy-read: short sentences, one idea each. */
   easy: string;
+  /** A fuller explanation, for "More detail". */
+  full?: string;
+  /** What could not be worked out, and who could answer it. */
+  unclear?: string;
   needs: Needs;
   /** What they want you to do. */
   ask: string;
@@ -48,6 +52,8 @@ export interface Step {
   at?: number;
   /** For 'pay': the amount, as written. */
   amount?: string;
+  /** Roughly how long it usually takes. */
+  minutes?: number;
   /** For 'send': how it was sent. */
   how?: 'post' | 'email' | 'online' | 'in person' | 'phone';
 }
@@ -74,6 +80,15 @@ export interface Waiting {
   chaseAt: number;
 }
 
+/** One line read from a photo of a page, with where it sits, so the app can show that line itself. */
+export interface PageLine {
+  /** The photo it came from. */
+  page: string;
+  text: string;
+  /** Left, top, right, bottom, as fractions of the photo's width and height. */
+  box: [number, number, number, number];
+}
+
 export interface Item {
   id: string;
   kind: Kind;
@@ -85,6 +100,8 @@ export interface Item {
   text: string;
   /** Pictures of the pages, kept on this device only. */
   pageIds: string[];
+  /** Where each line sits on those pictures, for "Show me on the letter". */
+  lines?: PageLine[];
   status: Status;
   understanding?: Understanding;
   steps: Step[];
@@ -96,6 +113,8 @@ export interface Item {
   waiting?: Waiting;
   record: RecordEntry[];
   dueAt?: number;
+  /** Other things about the same matter, such as an earlier letter from the same office. */
+  links?: string[];
   /** Set when this item was made from a renewal. */
   renewalId?: string;
   /** Set by pile-of-post mode until the item has been sorted. */
@@ -137,6 +156,14 @@ export interface Settings {
   deviceVoice: boolean;
   helperOn: boolean;
   reminders: boolean;
+  /** Days before a date to be reminded; 0 is the day itself. */
+  remindDays: number[];
+  /** High contrast colours. */
+  contrast: boolean;
+  /** More room between lines and words. */
+  wideSpacing: boolean;
+  /** On a low day, Today shows only the one next thing. */
+  justNext: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -149,6 +176,10 @@ export const DEFAULT_SETTINGS: Settings = {
   deviceVoice: false,
   helperOn: false,
   reminders: true,
+  remindDays: [3, 0],
+  contrast: false,
+  wideSpacing: false,
+  justNext: false,
 };
 
 /** One step handed to someone else to help with. They see only this, never the rest. */
@@ -162,6 +193,12 @@ export interface Share {
   help: string;
   /** Shown only when the person chose to include it. */
   extract: string;
+  /** What it says, in plain words, only if ticked. */
+  plain?: string;
+  /** Amounts, dates and references, only if ticked. */
+  details?: string[];
+  /** Small pictures of the pages, only if ticked. */
+  pages?: string[];
   from: string;
   dueAt?: number;
   createdAt: number;
@@ -170,4 +207,10 @@ export interface Share {
   reply?: string;
   repliedAt?: number;
   helperName?: string;
+  /** A photo the supporter added, such as the document they found. */
+  replyPhoto?: string;
+  /** The supporter says their part is done. */
+  helperDone?: boolean;
+  /** When the supporter first opened the link. */
+  openedAt?: number;
 }

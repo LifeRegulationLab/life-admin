@@ -5,6 +5,7 @@ const deps = (over: Partial<SpeechDeps> = {}): SpeechDeps => ({
   on: 'true',
   origins: ['capacitor://localhost'],
   verifyUser: async (t) => (t === 'good' ? 'u1' : undefined),
+  hasPlus: async (uid) => uid === 'u1',
   speak: vi.fn(async () => new Uint8Array([1, 2, 3]).buffer),
   ...over,
 });
@@ -17,6 +18,13 @@ describe('read aloud server', () => {
     expect((await handleSpeech(post('Hello', 'bad'), deps())).status).toBe(401);
     expect((await handleSpeech(post(''), deps())).status).toBe(400);
     expect((await handleSpeech(post('a'.repeat(2600)), deps())).status).toBe(400);
+  });
+
+  it('needs Dealt With Plus, and never records without it', async () => {
+    const d = deps({ hasPlus: async () => false });
+    const r = await handleSpeech(post('Hello'), d);
+    expect(r.status).toBe(402);
+    expect(d.speak).not.toHaveBeenCalled();
   });
 
   it('returns the recorded voice', async () => {

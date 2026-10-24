@@ -149,8 +149,9 @@ textarea.field {
   font-weight: 600;
 }
 
+/* A passed date: plain and clear, never red. */
 .late {
-  color: var(--warn);
+  color: var(--ink);
   font-weight: 600;
 }
 
@@ -171,4 +172,50 @@ html[data-easy='on'] .btn {
 
 a {
   text-underline-offset: 3px;
+}
+
+/* A word that can be tapped to see what it means. */
+.term {
+  display: inline;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  background: none;
+  border: 0;
+  cursor: help;
+}
+
+/* High contrast, chosen in Me: pure ink on white, stronger lines, no soft greys. */
+html[data-contrast='on'] {
+  --page: #ffffff;
+  --panel: #ffffff;
+  --ink: #000000;
+  --muted: #1f2533;
+  --line: #0f1420;
+  --line-strong: #000000;
+  --accent-soft: #ffe2a3;
+  --shadow: none;
+}
+@media (prefers-color-scheme: dark) {
+  html[data-contrast='on'] {
+    --page: #000000;
+    --panel: #000000;
+    --ink: #ffffff;
+    --muted: #e6e9f0;
+    --line: #f4f1ea;
+    --line-strong: #ffffff;
+    --accent-soft: #4a3a10;
+  }
+}
+
+/* Wider spacing, chosen in Me: more room between lines, words and letters. */
+html[data-spacing='wide'] body {
+  line-height: 1.85;
+  letter-spacing: 0.02em;
+  word-spacing: 0.12em;
+}
+html[data-spacing='wide'] .card {
+  @apply p-5;
 }

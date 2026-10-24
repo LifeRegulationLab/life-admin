@@ -12,6 +12,12 @@ service cloud.firestore {
       allow read, write: if signedIn() && request.auth.uid == uid;
     }
 
+    // Dealt With Plus. Only the server writes plans, from Stripe's signed messages.
+    match /plans/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+
     match /shares/{code} {
       allow get: if resource.data.expiresAt > request.time.toMillis()
         || (signedIn() && resource.data.owner == request.auth.uid);
@@ -21,11 +27,18 @@ service cloud.firestore {
         && request.resource.data.code == code
         && code.size() >= 20
         && request.resource.data.expiresAt <= request.time.toMillis() + 15 * 24 * 60 * 60 * 1000;
+      // The supporter writes back once: a reply, their name, one photo, and whether their part is done.
+      // Opening the link is noted once, so the person can see it was looked at.
       allow update: if resource.data.expiresAt > request.time.toMillis()
-        && !('repliedAt' in resource.data)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reply', 'helperName', 'repliedAt'])
-        && request.resource.data.reply is string && request.resource.data.reply.size() <= 4000
-        && request.resource.data.helperName is string && request.resource.data.helperName.size() <= 80;
+        && ((!('repliedAt' in resource.data)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reply', 'helperName', 'repliedAt', 'replyPhoto', 'helperDone'])
+          && request.resource.data.reply is string && request.resource.data.reply.size() <= 4000
+          && request.resource.data.helperName is string && request.resource.data.helperName.size() <= 80
+          && (!('replyPhoto' in request.resource.data) || (request.resource.data.replyPhoto is string && request.resource.data.replyPhoto.size() <= 450000))
+          && (!('helperDone' in request.resource.data) || request.resource.data.helperDone is bool))
+        || (!('openedAt' in resource.data)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['openedAt'])
+          && request.resource.data.openedAt is int));
       allow delete: if signedIn() && resource.data.owner == request.auth.uid;
     }
   }

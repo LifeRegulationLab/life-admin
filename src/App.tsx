@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 import { Layout } from './components/Layout';
 import { StoreProvider, useStore } from './lib/store/StoreProvider';
 import { Add, AddKind } from './pages/Add';
+import { Compare } from './pages/Compare';
 import { Everything } from './pages/Everything';
 import { Help } from './pages/Help';
 import { HelpWith } from './pages/HelpWith';
@@ -41,6 +42,7 @@ export function App() {
             <Route path="pile" element={<Pile />} />
             <Route path="item/:id" element={<ItemFlow />} />
             <Route path="item/:id/record" element={<RecordPage />} />
+            <Route path="compare/:a/:b" element={<Compare />} />
             <Route path="renewals" element={<Renewals />} />
             <Route path="renewals/:id" element={<RenewalEdit />} />
             <Route path="all" element={<Everything />} />

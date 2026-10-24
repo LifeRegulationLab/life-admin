@@ -3,17 +3,25 @@ import { useNavigate } from 'react-router';
 import { Card, Text } from '../components/ui';
 import { APP_NAME } from '../lib/brand';
 import { firebaseConfigured } from '../lib/firebase/app';
-import { finishLink, importIntoAccount, sendLink } from '../lib/firebase/account';
+import { finishLink, importIntoAccount, passwordSignIn, resetPassword, sendLink } from '../lib/firebase/account';
 import { COLLECTIONS, DOCS } from '../lib/store/backend';
 import { useStore } from '../lib/store/StoreProvider';
 
-/** Sign in with a link sent by email. No password. Then move anything already on this phone. */
+/**
+ * Make an account or sign in, with a password (works in the app on a home screen) or a link sent
+ * by email. Then move anything already on this phone into the account.
+ */
 export function SignIn() {
   const store = useStore();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [state, setState] = useState<'ask' | 'sent' | 'need-email' | 'moving' | 'error'>('ask');
   const [error, setError] = useState('');
+  const [password, setPassword] = useState('');
+  const [isNew, setIsNew] = useState(true);
+  const [byLink, setByLink] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState('');
   const names = [...COLLECTIONS, ...DOCS.map((d) => `doc:${d}`)];
   const held = store.device.dump(names);
   const hasDevice = COLLECTIONS.some((c) => Array.isArray(held[c]) && (held[c] as unknown[]).length > 0);
@@ -38,6 +46,14 @@ export function SignIn() {
     } catch {
       setError('The link was not sent. Check the email address and the signal.');
     }
+  };
+
+  const withPassword = async () => {
+    setError('');
+    setBusy(true);
+    const e = await passwordSignIn(email.trim(), password, isNew);
+    setBusy(false);
+    if (e) setError(e);
   };
 
   const finishWithEmail = async () => {
@@ -71,7 +87,7 @@ export function SignIn() {
 
   return (
     <main className="mx-auto flex max-w-xl flex-col gap-4 px-5 py-10">
-      <h1 className="text-2xl font-semibold">Sign in to {APP_NAME}</h1>
+      <h1 className="text-2xl font-semibold">Your {APP_NAME} account</h1>
       <p className="muted text-sm">This account is for {APP_NAME} only. It is separate from any other Life Regulation Lab app.</p>
       {store.user ? (
         <Card className="flex flex-col gap-3">
@@ -93,13 +109,43 @@ export function SignIn() {
         <Card>
           <p>A sign-in link is on its way to {email}. Open it on this phone. It works once and lasts an hour.</p>
         </Card>
-      ) : (
+      ) : byLink || state === 'need-email' ? (
         <Card className="flex flex-col gap-3">
           <Text label="Your email address" type="email" value={email} onChange={setEmail} />
           <button className="btn btn-primary" disabled={!email.includes('@')} onClick={() => void (state === 'need-email' ? finishWithEmail() : send())}>
             {state === 'need-email' ? 'Finish signing in' : 'Send me a link'}
           </button>
-          <p className="muted text-sm">{state === 'need-email' ? 'Type the email address the link was sent to.' : 'You get an email with a link. There is no password to remember.'}</p>
+          <p className="muted text-sm">{state === 'need-email' ? 'Type the email address the link was sent to.' : 'You get an email with a link. Open it on this phone.'}</p>
+          {state !== 'need-email' ? (
+            <button className="btn" onClick={() => setByLink(false)}>
+              Use a password instead
+            </button>
+          ) : null}
+        </Card>
+      ) : (
+        <Card className="flex flex-col gap-3">
+          <h2 className="font-semibold">{isNew ? 'Make your account' : 'Sign in'}</h2>
+          <Text label="Your email address" type="email" value={email} onChange={setEmail} />
+          <Text label="Password" {...(isNew ? { hint: 'At least 8 characters.' } : {})} type="password" value={password} onChange={setPassword} />
+          <button className="btn btn-primary" disabled={!email.includes('@') || password.length < (isNew ? 8 : 1) || busy} onClick={() => void withPassword()}>
+            {busy ? 'One moment…' : isNew ? 'Make my account' : 'Sign in'}
+          </button>
+          <button className="btn" onClick={() => setIsNew(!isNew)}>
+            {isNew ? 'I have an account' : 'I need an account'}
+          </button>
+          {!isNew ? (
+            <button
+              className="self-start text-sm underline"
+              disabled={!email.includes('@')}
+              onClick={() => void resetPassword(email.trim()).then(() => setNote('A link to set a new password is on its way.'), () => setNote('That did not send. Check the email address.'))}
+            >
+              Forgotten your password?
+            </button>
+          ) : null}
+          <button className="self-start text-sm underline" onClick={() => setByLink(true)}>
+            Get a sign-in link by email instead
+          </button>
+          {note ? <p className="muted text-sm">{note}</p> : null}
         </Card>
       )}
       {error ? <p className="warnbox">{error}</p> : null}

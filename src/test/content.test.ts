@@ -45,3 +45,16 @@ describe('the words in the app', () => {
     }
   });
 });
+
+describe('the word list', () => {
+  it('marks known words and leaves the rest', async () => {
+    const { markTerms, GLOSSARY } = await import('../lib/content/glossary');
+    const parts = markTerms('Your Council Tax arrears are £300.');
+    expect(parts.filter((p) => p.term).map((p) => p.term)).toEqual(['council tax', 'arrears']);
+    expect(parts.map((p) => p.text).join('')).toBe('Your Council Tax arrears are £300.');
+    for (const [term, meaning] of Object.entries(GLOSSARY)) {
+      expect(meaning, term).not.toMatch(/!|journey|steady/i);
+      expect(meaning.length, term).toBeLessThan(260);
+    }
+  });
+});

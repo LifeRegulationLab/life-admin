@@ -19,7 +19,7 @@ export const SYSTEMS = {
   understand: [
     RULES,
     'Read the document and reply with JSON only, no other text, in this shape:',
-    '{"plain": "two or three sentences: who it is from, what it is about, what they want", "easy": "the same in easy-read: very short sentences, one idea each, everyday words", "needs": "yes" | "no" | "unclear", "ask": "what they want the person to do, starting with a verb, or empty", "due": "YYYY-MM-DD or empty", "consequence": "what the document says happens if nothing is done, or empty", "quotes": ["exact words copied from the document that show the ask, the date and the consequence"], "from": "who sent it", "reference": "their reference number, or empty", "steps": [{"type": "find" | "reply" | "send" | "proof" | "call" | "pay" | "book" | "attend" | "wait" | "check" | "custom", "title": "a short step starting with a verb"}]}',
+    '{"plain": "two or three sentences: who it is from, what it is about, what they want", "easy": "the same in easy-read: very short sentences, one idea each, everyday words", "full": "a fuller explanation in plain words, up to eight sentences, covering every request, date and amount in the document", "needs": "yes" | "no" | "unclear", "ask": "what they want the person to do, starting with a verb, or empty", "due": "YYYY-MM-DD or empty", "consequence": "what the document says happens if nothing is done, or empty", "unclear": "what could not be worked out from the document, and who could answer it, or empty", "quotes": ["exact words copied from the document that show the ask, the date and the consequence"], "from": "who sent it", "reference": "their reference number, or empty", "steps": [{"type": "find" | "reply" | "send" | "proof" | "call" | "pay" | "book" | "attend" | "wait" | "check" | "custom", "title": "a short step starting with a verb"}]}',
     'needs is "no" only when the document plainly asks for nothing. Steps are the smallest useful steps in order, at most seven.',
   ].join('\n'),
   draft: [
@@ -35,10 +35,14 @@ export const SYSTEMS = {
 
 export type Job = keyof typeof SYSTEMS;
 
+export const PLUS_TEXT = 'The helper is part of Dealt With Plus. Every step works without it.';
+
 export interface HelperDeps {
   on: string | undefined;
   origins: readonly string[];
   verifyUser: (token: string) => Promise<string | undefined>;
+  /** Whether this person has Dealt With Plus (or is a tester). */
+  hasPlus: (uid: string) => Promise<boolean>;
   model: (system: string, messages: { role: 'user' | 'assistant'; content: string }[], maxTokens: number) => Promise<{ text: string; refused: boolean }>;
 }
 
@@ -82,10 +86,12 @@ function squash(s: string): string {
 export interface Understood {
   plain: string;
   easy: string;
+  full: string;
   needs: 'yes' | 'no' | 'unclear';
   ask: string;
   due: string;
   consequence: string;
+  unclear: string;
   quotes: string[];
   from: string;
   reference: string;
@@ -122,7 +128,7 @@ export function readUnderstood(raw: string, source: string): Understood | undefi
     .map((x) => ({ type: STEP_TYPES.has(x.type) ? x.type : 'custom', title: x.title.trim().slice(0, 120) }))
     .filter((x) => x.title)
     .slice(0, 7);
-  const out: Understood = { plain: s('plain'), easy: s('easy'), needs, ask: s('ask'), due, consequence: s('consequence'), quotes, from: s('from'), reference: s('reference'), steps };
+  const out: Understood = { plain: s('plain'), easy: s('easy'), full: s('full'), needs, ask: s('ask'), due, consequence: s('consequence'), unclear: s('unclear'), quotes, from: s('from'), reference: s('reference'), steps };
   if (!out.plain) return undefined;
   return out;
 }
@@ -146,6 +152,7 @@ export async function handleHelper(request: Request, deps: HelperDeps): Promise<
   const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
   const uid = token ? await deps.verifyUser(token) : undefined;
   if (!uid) return send(401, { text: 'Sign in to use the helper.' });
+  if (!(await deps.hasPlus(uid))) return send(402, { text: PLUS_TEXT, plus: true });
 
   let parsed: HelperRequest | undefined;
   try {

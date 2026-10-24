@@ -70,6 +70,6 @@ describe('dealing with a thing', () => {
     expect(whenWords(NOW, NOW)).toBe('Due today');
     expect(whenWords(NOW + DAY, NOW)).toBe('Due tomorrow');
     expect(whenWords(NOW + 5 * DAY, NOW)).toBe('Due in 5 days');
-    expect(whenWords(NOW - 3 * DAY, NOW)).toBe('3 days late');
+    expect(whenWords(NOW - 3 * DAY, NOW)).toMatch(/^The date was \d+ [A-Z][a-z]+$/);
   });
 });

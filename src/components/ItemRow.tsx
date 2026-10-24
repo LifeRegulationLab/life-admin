@@ -30,7 +30,13 @@ export function ItemRow({ item, now }: { item: Item; now: number }) {
                 : `Waiting for ${item.waiting?.forWhat ?? 'a reply'}`
               : whenWords(due, now)}
         </span>
-        {item.status !== 'done' && item.status !== 'waiting' && step ? <span className="text-sm">Next: {step.title}</span> : null}
+        {late && item.understanding?.consequence ? <span className="text-sm">The letter says: {item.understanding.consequence}</span> : null}
+        {item.status !== 'done' && item.status !== 'waiting' && step ? (
+          <span className="text-sm">
+            {item.pausedNote || item.steps.some((s) => s.done) ? `You stopped at step ${item.steps.indexOf(step) + 1} of ${item.steps.length}: ` : 'Next: '}
+            {step.title}
+          </span>
+        ) : null}
         {item.pausedNote && item.status !== 'done' ? <span className="muted text-sm">Where I got to: {item.pausedNote}</span> : null}
       </span>
       <span aria-hidden="true" className="muted">

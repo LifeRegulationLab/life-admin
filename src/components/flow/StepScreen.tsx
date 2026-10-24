@@ -14,6 +14,7 @@ import { itemName } from '../ItemRow';
 import { Picture } from '../Picture';
 import { Area, Card, Choice, fromLocalInput, Text, toDateInput, toLocalInput } from '../ui';
 import { ReadAloud, say, useEasy } from '../voice';
+import { PlusNote } from '../PlusNote';
 import { ShareStep } from './ShareStep';
 
 const HOW: { code: NonNullable<Step['how']>; text: string }[] = [
@@ -26,7 +27,7 @@ const HOW: { code: NonNullable<Step['how']>; text: string }[] = [
 
 /** One step on one screen, with help for doing it and a place for what was done. */
 export function StepScreen({ item, step, index, onDone }: { item: Item; step: Step; index: number; onDone: (next: Item) => void }) {
-  const { saveItem, data, user } = useStore();
+  const { saveItem, data, user, plus, offerUndo } = useStore();
   const settings = data.settings;
   const easy = useEasy();
   const facts = readFacts(item.text, new Date(item.createdAt));
@@ -42,7 +43,7 @@ export function StepScreen({ item, step, index, onDone }: { item: Item; step: St
   const [helperNote, setHelperNote] = useState('');
   const [busy, setBusy] = useState('');
   const [msg, setMsg] = useState('');
-  const canHelp = settings.helperOn && helperAvailable() && Boolean(user);
+  const canHelp = settings.helperOn && helperAvailable() && Boolean(user) && plus;
   const ask = item.understanding?.ask ?? '';
 
   const withFields = (base: Item): Item =>
@@ -62,6 +63,7 @@ export function StepScreen({ item, step, index, onDone }: { item: Item; step: St
     if (ref && !proofIds.length) next = addRecord(next, step.type === 'pay' ? 'paid' : 'proof', `Reference: ${ref}`, { ref });
     next = completeStep(next, step.id);
     await saveItem(next);
+    offerUndo(`Done: ${step.title}`, item);
     onDone(next);
   };
 
@@ -69,6 +71,7 @@ export function StepScreen({ item, step, index, onDone }: { item: Item; step: St
     let next = withFields(item);
     next = startWaiting(next, waitFor, chase);
     await saveItem(next);
+    offerUndo('Moved to Waiting for them', item);
     onDone(next);
   };
 
@@ -115,6 +118,7 @@ export function StepScreen({ item, step, index, onDone }: { item: Item; step: St
         <div className="flex flex-col gap-1">
           <p className="muted text-sm">
             Step {index + 1} of {item.steps.length}
+            {step.minutes ? ` · usually about ${step.minutes} minutes` : ''}
           </p>
           <h2 className={`${easy ? 'text-2xl' : 'text-xl'} font-semibold`}>{step.title}</h2>
         </div>
@@ -146,7 +150,9 @@ export function StepScreen({ item, step, index, onDone }: { item: Item; step: St
                 {busy || (step.type === 'call' ? 'Write a script for me' : 'Draft it for me')}
               </button>
             </>
-          ) : null}
+          ) : (
+            <PlusNote text={step.type === 'call' ? 'With Dealt With Plus, the helper can write a script for the call.' : 'With Dealt With Plus, the helper can draft the reply for you.'} />
+          )}
           {!draft ? (
             <button type="button" className="btn self-start" onClick={plainDraft}>
               {step.type === 'call' ? 'Start from a simple script' : 'Start from a simple letter'}

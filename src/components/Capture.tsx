@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { readPicture } from '../lib/ocr';
+import type { PageLine } from '../lib/model/types';
+import { readPage } from '../lib/ocr';
 import { loadPhoto, removePhoto, savePhoto, shrink } from '../lib/store/photos';
 import { Picture } from './Picture';
 
@@ -12,12 +13,16 @@ export function Capture({
   onText,
   pageIds,
   onPages,
+  lines = [],
+  onLines,
   easy,
 }: {
   text: string;
   onText: (t: string) => void;
   pageIds: string[];
   onPages: (ids: string[]) => void;
+  lines?: PageLine[];
+  onLines?: (lines: PageLine[]) => void;
   easy: boolean;
 }) {
   const [mode, setMode] = useState<'photo' | 'paste' | 'type' | undefined>(pageIds.length ? 'photo' : text ? 'type' : undefined);
@@ -30,6 +35,7 @@ export function Capture({
     setError('');
     const ids = [...pageIds];
     let words = text;
+    let found: PageLine[] = [...lines];
     for (const [n, file] of Array.from(files).entries()) {
       setReading(`Reading page ${ids.length + 1}${files.length > 1 ? ` (${n + 1} of ${files.length})` : ''}…`);
       const small = await shrink(file);
@@ -37,9 +43,11 @@ export function Capture({
       ids.push(id);
       onPages([...ids]);
       try {
-        const found = await readPicture(small);
-        words = words ? `${words}\n\n${found}` : found;
+        const read = await readPage(small, id);
+        words = words ? `${words}\n\n${read.text}` : read.text;
         onText(words);
+        found = [...found, ...read.lines];
+        onLines?.(found);
       } catch {
         setError('The words on that page could not be read. You can type the important parts instead.');
       }
@@ -91,7 +99,7 @@ export function Capture({
       {pageIds.length ? (
         <div className="flex flex-wrap gap-2">
           {pageIds.map((id, i) => (
-            <Thumb key={id} id={id} label={`Page ${i + 1}`} onRemove={() => { void removePhoto(id); onPages(pageIds.filter((x) => x !== id)); }} />
+            <Thumb key={id} id={id} label={`Page ${i + 1}`} onRemove={() => { void removePhoto(id); onPages(pageIds.filter((x) => x !== id)); onLines?.(lines.filter((l) => l.page !== id)); }} />
           ))}
           <button type="button" className="btn" onClick={() => fileRef.current?.click()}>
             Add a page

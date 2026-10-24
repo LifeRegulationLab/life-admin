@@ -5,7 +5,8 @@ import { inShell } from './shell';
 
 /**
  * Reminders on the phone, set by the phone itself: nothing is sent from a server. Each open
- * thing with a date gets a reminder three days before and one on the day, at 9 in the morning.
+ * thing with a date gets a reminder on the days before it that the person chose (three days before
+ * and on the day unless they change it), at 9 in the morning.
  * Waiting things get one on their chase date. The web app shows the same dates on Today instead.
  */
 
@@ -30,7 +31,9 @@ export function reminderId(key: string): number {
   return Math.abs(h) % 2_000_000_000;
 }
 
-export function remindersFor(items: readonly Item[], renewals: readonly Renewal[], now = Date.now()): Reminder[] {
+const DAY_WORDS = (d: number) => (d === 0 ? 'Due today' : d === 1 ? 'Due tomorrow' : `Due in ${d} days`);
+
+export function remindersFor(items: readonly Item[], renewals: readonly Renewal[], now = Date.now(), days: readonly number[] = [3, 0]): Reminder[] {
   const out: Reminder[] = [];
   const add = (key: string, at: number, title: string, body: string, itemId?: string) => {
     if (at > now) out.push({ id: reminderId(key), at, title, body, ...(itemId ? { itemId } : {}) });
@@ -44,8 +47,7 @@ export function remindersFor(items: readonly Item[], renewals: readonly Renewal[
       continue;
     }
     if (due !== undefined) {
-      add(`${item.id}:soon`, nine(due - 3 * DAY), `Due in 3 days: ${name}`, 'Open it to see the next step.', item.id);
-      add(`${item.id}:day`, nine(due), `Due today: ${name}`, 'Open it to see the next step.', item.id);
+      for (const d of days) add(d === 3 ? `${item.id}:soon` : d === 0 ? `${item.id}:day` : `${item.id}:${d}`, nine(due - d * DAY), `${DAY_WORDS(d)}: ${name}`, 'Open it to see the next step.', item.id);
     }
   }
   for (const r of renewals) {
@@ -57,13 +59,13 @@ export function remindersFor(items: readonly Item[], renewals: readonly Renewal[
 
 let asked = false;
 
-export async function scheduleReminders(items: readonly Item[], renewals: readonly Renewal[], on: boolean): Promise<void> {
+export async function scheduleReminders(items: readonly Item[], renewals: readonly Renewal[], on: boolean, days: readonly number[] = [3, 0]): Promise<void> {
   if (!inShell()) return;
   try {
     const pending = await LocalNotifications.getPending();
     if (pending.notifications.length) await LocalNotifications.cancel({ notifications: pending.notifications.map((n) => ({ id: n.id })) });
     if (!on) return;
-    const list = remindersFor(items, renewals);
+    const list = remindersFor(items, renewals, Date.now(), days);
     if (!list.length) return;
     if (!asked) {
       asked = true;

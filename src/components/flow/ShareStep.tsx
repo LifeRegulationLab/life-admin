@@ -4,6 +4,8 @@ import { createShare, listenShares, removeShare } from '../../lib/firebase/accou
 import type { Item, Share, Step } from '../../lib/model/types';
 import { fmtDate } from '../../lib/papers/record';
 import { shareText } from '../../lib/shell';
+import { readFacts } from '../../lib/logic/facts';
+import { loadPhoto, smallDataUrl } from '../../lib/store/photos';
 import { useStore } from '../../lib/store/StoreProvider';
 import { itemName } from '../ItemRow';
 import { Picture } from '../Picture';
@@ -43,16 +45,30 @@ export function ShareStep({ item, step }: { item: Item; step: Step }) {
   const shares = useShares().filter((s) => s.itemId === item.id && s.stepId === step.id);
   const [open, setOpen] = useState(false);
   const [withWords, setWithWords] = useState(false);
+  const [withPlain, setWithPlain] = useState(false);
+  const [withDetails, setWithDetails] = useState(false);
+  const [withPages, setWithPages] = useState(false);
   const [days, setDays] = useState<'3' | '7' | '14'>('7');
   const [msg, setMsg] = useState('');
   const online = Boolean(user) && firebaseConfigured();
 
   const extract = withWords ? item.text.slice(0, 6000) : '';
+  const facts = readFacts(item.text, new Date(item.createdAt));
+  const details = withDetails
+    ? [
+        ...facts.amounts.slice(0, 3).map((a) => `Amount: ${a.value}`),
+        ...(item.reference ? [`Reference: ${item.reference}`] : facts.references.slice(0, 2).map((r) => `Reference: ${r.value}`)),
+        ...facts.dates.slice(0, 3).map((d) => `Date in it: ${fmtDate(d.value)}`),
+      ]
+    : [];
+  const plain = withPlain ? (item.understanding?.plain ?? '') : '';
   const text = [
     `Could you help me with one thing? ${itemName(item)}${item.from ? `, from ${item.from}` : ''}.`,
     `The step: ${step.title}.`,
     step.help,
     item.understanding?.dueAt ? `It needs doing by ${fmtDate(item.understanding.dueAt)}.` : '',
+    plain ? `What it says: ${plain}` : '',
+    details.length ? details.join('\n') : '',
     extract ? `The words of it:\n${extract}` : '',
   ]
     .filter(Boolean)
@@ -62,6 +78,14 @@ export function ShareStep({ item, step }: { item: Item; step: Step }) {
     if (!user) return;
     setMsg('');
     try {
+      const pages: string[] = [];
+      if (withPages) {
+        for (const id of item.pageIds.slice(0, 3)) {
+          const blob = await loadPhoto(id);
+          const url = blob ? await smallDataUrl(blob, 900, 0.6) : undefined;
+          if (url) pages.push(url);
+        }
+      }
       const s = await createShare(
         {
           owner: user.uid,
@@ -70,6 +94,9 @@ export function ShareStep({ item, step }: { item: Item; step: Step }) {
           title: step.title,
           help: step.help,
           extract,
+          ...(plain ? { plain } : {}),
+          ...(details.length ? { details } : {}),
+          ...(pages.length ? { pages } : {}),
           from: item.from,
           ...(item.understanding?.dueAt ? { dueAt: item.understanding.dueAt } : {}),
           helperName: '',
@@ -93,10 +120,17 @@ export function ShareStep({ item, step }: { item: Item; step: Step }) {
       {shares.map((s) => (
         <Card key={s.code} className="flex flex-col gap-2">
           <p className="font-semibold">Shared with someone until {fmtDate(s.expiresAt)}</p>
+          <p className="muted text-sm">
+            {s.openedAt ? `They opened it on ${fmtDate(s.openedAt, true)}.` : 'Not opened yet.'} They can see: this step{[s.plain ? 'what it says' : '', s.details?.length ? 'the amounts, dates and references' : '', s.extract ? 'the words' : '', s.pages?.length ? 'the photos of the pages' : ''].filter(Boolean).map((x) => `, ${x}`).join('')}.
+          </p>
           {s.reply ? (
-            <p className="whitespace-pre-wrap">
-              {s.helperName || 'They'} wrote: {s.reply}
-            </p>
+            <>
+              <p className="whitespace-pre-wrap">
+                {s.helperName || 'They'} wrote: {s.reply}
+              </p>
+              {s.replyPhoto ? <img src={s.replyPhoto} alt={`Sent back by ${s.helperName || 'them'}`} className="max-h-64 max-w-full self-start rounded border border-[var(--line)]" /> : null}
+              {s.helperDone ? <p className="text-sm">They say their part is done.</p> : null}
+            </>
           ) : (
             <p className="muted text-sm">No answer from them yet.</p>
           )}
@@ -113,17 +147,36 @@ export function ShareStep({ item, step }: { item: Item; step: Step }) {
       ) : (
         <Card className="flex flex-col gap-3">
           <p>They will see this step and its help. Nothing else, unless you tick below.</p>
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked={withWords} onChange={(e) => setWithWords(e.target.checked)} />
-            Also show them the words of the {item.kind === 'email' ? 'email' : 'letter'}
-          </label>
+          <fieldset className="flex flex-col gap-2">
+            <legend className="label">Also show them (each one only if you tick it)</legend>
+            {item.understanding?.plain ? (
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={withPlain} onChange={(e) => setWithPlain(e.target.checked)} />
+                What it says, in plain words
+              </label>
+            ) : null}
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={withDetails} onChange={(e) => setWithDetails(e.target.checked)} />
+              The amounts, dates and references
+            </label>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={withWords} onChange={(e) => setWithWords(e.target.checked)} />
+              All the words of the {item.kind === 'email' ? 'email' : 'letter'}
+            </label>
+            {online && item.pageIds.length ? (
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={withPages} onChange={(e) => setWithPages(e.target.checked)} />
+                Photos of the pages
+              </label>
+            ) : null}
+          </fieldset>
           {online ? (
             <>
               <Choice label="The link works for" options={DAYS} value={days} onChange={setDays} />
               <button type="button" className="btn btn-primary self-start" onClick={() => void sendLink()}>
                 Make a link to send
               </button>
-              <p className="muted text-sm">They can write back to you on the link. It stops working when this step is done.</p>
+              <p className="muted text-sm">They can write back, add a photo, and say when their part is done. They cannot see anything else or send anything in your name. The link stops when this step is done, when you stop sharing, or after the days above. Stopping it cannot undo what they have already seen or saved.</p>
             </>
           ) : (
             <button type="button" className="btn btn-primary self-start" onClick={() => void sendText()}>

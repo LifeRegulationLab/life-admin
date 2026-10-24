@@ -3,7 +3,8 @@ import { useParams } from 'react-router';
 import { Area, Card, Text } from '../components/ui';
 import { APP_FULL_NAME } from '../lib/brand';
 import { firebaseConfigured } from '../lib/firebase/app';
-import { getShare, replyToShare } from '../lib/firebase/account';
+import { getShare, markShareOpened, replyToShare } from '../lib/firebase/account';
+import { smallDataUrl } from '../lib/store/photos';
 import type { Share } from '../lib/model/types';
 import { clock } from '../lib/time';
 import { fmtDate } from '../lib/papers/record';
@@ -19,11 +20,17 @@ export function HelpWith() {
   const [name, setName] = useState('');
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
+  const [photo, setPhoto] = useState<string>();
+  const [done, setDone] = useState(false);
 
   useEffect(() => {
     if (!code || !firebaseConfigured()) return;
     void getShare(code)
-      .then((s) => setShare(s && s.expiresAt > clock() ? s : null))
+      .then((s) => {
+        const live = s && s.expiresAt > clock() ? s : null;
+        setShare(live);
+        if (live && !live.openedAt) void markShareOpened(code);
+      })
       .catch(() => setShare(null));
   }, [code]);
 
@@ -31,7 +38,7 @@ export function HelpWith() {
     if (!code) return;
     setError('');
     try {
-      await replyToShare(code, reply.trim(), name.trim());
+      await replyToShare(code, reply.trim() || (done ? 'Done.' : ''), name.trim(), { ...(photo ? { photo } : {}), done });
       setSent(true);
     } catch {
       setError('That was not sent. Check the signal and try again.');
@@ -55,6 +62,27 @@ export function HelpWith() {
               <p>{share.help}</p>
             </Card>
           ) : null}
+          {share.plain ? (
+            <Card className="flex flex-col gap-2">
+              <h2 className="font-semibold">What it says</h2>
+              <p>{share.plain}</p>
+            </Card>
+          ) : null}
+          {share.details?.length ? (
+            <Card className="flex flex-col gap-1">
+              <h2 className="font-semibold">Details</h2>
+              {share.details.map((d) => (
+                <p key={d}>{d}</p>
+              ))}
+            </Card>
+          ) : null}
+          {share.pages?.length ? (
+            <div className="flex flex-col gap-2">
+              {share.pages.map((p, i) => (
+                <img key={i} src={p} alt={`Page ${i + 1}`} className="max-w-full rounded border border-[var(--line)]" />
+              ))}
+            </div>
+          ) : null}
           {share.extract ? (
             <Card className="flex flex-col gap-2">
               <h2 className="font-semibold">The words they shared</h2>
@@ -69,7 +97,24 @@ export function HelpWith() {
             <Card className="flex flex-col gap-3">
               <Area label="Write back to them" value={reply} onChange={setReply} rows={4} />
               <Text label="Your name" value={name} onChange={setName} />
-              <button type="button" className="btn btn-primary" disabled={!reply.trim()} onClick={() => void send()}>
+              <label className="btn self-start">
+                {photo ? 'Change the photo' : 'Add a photo (optional)'}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void smallDataUrl(f, 1200, 0.7).then((u) => setPhoto(u));
+                  }}
+                />
+              </label>
+              {photo ? <img src={photo} alt="What you are sending back" className="max-h-48 max-w-full self-start rounded border border-[var(--line)]" /> : null}
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={done} onChange={(e) => setDone(e.target.checked)} />
+                My part is done
+              </label>
+              <button type="button" className="btn btn-primary" disabled={!reply.trim() && !done && !photo} onClick={() => void send()}>
                 Send
               </button>
             </Card>

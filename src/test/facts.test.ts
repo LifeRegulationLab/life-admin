@@ -47,3 +47,25 @@ describe('references', () => {
     expect(findReferences('National Insurance number: QQ 12 34 56 C')[0]?.value).toBe('QQ 12 34 56 C');
   });
 });
+
+describe('within so many days', () => {
+  it('counts from the date of the letter', async () => {
+    const { findWithin, findDeadline } = await import('../lib/logic/facts');
+    const today = new Date(2026, 9, 24, 12);
+    const text = 'Date: 20 October 2026\nPlease send the form within 28 days of the date of this letter.';
+    const w = findWithin(text, today);
+    expect(new Date(w?.value ?? 0).toDateString()).toBe(new Date(2026, 10, 17).toDateString());
+    expect(w?.quote).toContain('within 28 days');
+    expect(findDeadline(text, today)?.value).toBe(w?.value);
+  });
+
+  it('understands words, weeks and working days', async () => {
+    const { findWithin } = await import('../lib/logic/facts');
+    const today = new Date(2026, 9, 24, 12);
+    expect(new Date(findWithin('Dated 19 October 2026. Reply within fourteen days.', today)?.value ?? 0).toDateString()).toBe(new Date(2026, 10, 2).toDateString());
+    expect(new Date(findWithin('Dated 19 October 2026. Reply within 2 weeks.', today)?.value ?? 0).toDateString()).toBe(new Date(2026, 10, 2).toDateString());
+    // Friday 23 October plus 5 working days is Friday 30 October.
+    expect(new Date(findWithin('Dated 23 October 2026. Pay within 5 working days.', today)?.value ?? 0).toDateString()).toBe(new Date(2026, 9, 30).toDateString());
+    expect(findWithin('Please reply soon.', today)).toBeUndefined();
+  });
+});

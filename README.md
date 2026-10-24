@@ -16,10 +16,11 @@ Author: Stuart Houlihan
 - **Renewals**: MOT, car tax, insurance, TV Licence, passport and more. Each turns into something to deal with a set number of days before, then moves to the next date.
 - **Someone to help**: hand one step to someone else by link (with an account) or by message. They see that step only, and the words only if you tick it. The link ends when the step is done.
 - **Reminders**: three days before, on the day, and on the chase date, set by the phone itself. Calendar files for appointments and renewals.
-- **Read aloud**: a calm recorded voice on every screen, or reading every screen as it opens.
+- **Read aloud**: a calm recorded voice on every screen (Plus), or reading every screen as it opens. The phone's own voice only if the person switches it on.
 - **Easy-read**, pictures, and larger text, in Me.
-- **The helper** (off until switched on): explains a letter with quotes from it, suggests the steps, drafts replies and call scripts, answers a question about it.
-- **Account**: optional, by emailed link. It belongs to this app only. Deleting it deletes only this app's records.
+- **The helper** (Plus): explains a letter with quotes from it, suggests the steps, drafts replies and call scripts, answers a question about it.
+- **Dealt With Plus**: a monthly plan through Stripe for the helper and the recorded voice. Everything else is free. Testers have it without paying.
+- **Account**: email and password, or an emailed link. People can look around first; a line at the top asks them to make an account to keep what they add. It belongs to this app only. Deleting it deletes only this app's records.
 
 ## Run it
 

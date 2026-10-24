@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, type R
 import type { User } from 'firebase/auth';
 import { STORAGE_PREFIX } from '../brand';
 import { firebase, firebaseConfigured } from '../firebase/app';
-import { watchUser } from '../firebase/account';
+import { refreshPlan, watchPlan, watchUser } from '../firebase/account';
 import { SharedBackend } from '../firebase/shared';
 import { renewalsNeedingItems, roll } from '../logic/renewals';
 import { DEFAULT_SETTINGS, type Item, type Renewal, type Settings } from '../model/types';
@@ -31,11 +31,24 @@ export interface StoreValue {
   data: Data;
   backend: Backend;
   device: LocalBackend;
+  /** Has Dealt With Plus, which opens the helper and the recorded voice. The server checks again on every call. */
+  plus: boolean;
+  /** Pays for Plus through Stripe (testers have Plus without paying). */
+  paid: boolean;
   saveItem: (item: Item) => Promise<void>;
   removeItem: (id: string) => Promise<void>;
   saveRenewal: (r: Renewal) => Promise<void>;
   removeRenewal: (id: string) => Promise<void>;
   saveSettings: (s: Settings) => Promise<void>;
+  /** The last change that can be taken back, shown as an Undo bar for a short while. */
+  undo: { label: string; at: number } | undefined;
+  /** Remembers how a thing was before a change, so Undo can put it back. */
+  offerUndo: (label: string, before: Item) => void;
+  /** Puts the thing back as it was, and returns its id. */
+  runUndo: () => Promise<string | undefined>;
+  clearUndo: () => void;
+  /** Goes up by one each time Undo is used, so open screens start again from the restored thing. */
+  undoTick: number;
 }
 
 const Ctx = createContext<StoreValue | null>(null);
@@ -53,6 +66,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setAuthReady(true);
     });
   }, []);
+
+  const [plan, setPlan] = useState<{ uid: string; active: boolean; paid: boolean } | undefined>();
+  useEffect(() => {
+    if (!user) return;
+    void refreshPlan();
+    return watchPlan(user.uid, (p) => setPlan({ uid: user.uid, ...p }));
+  }, [user]);
+  const ownPlan = user && plan?.uid === user.uid ? plan : undefined;
 
   const backend: Backend = useMemo(() => (user ? new SharedBackend(firebase().db, user.uid) : device), [user, device]);
 
@@ -88,15 +109,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!loaded) return;
-    void scheduleReminders(data.items, data.renewals, data.settings.reminders);
-  }, [loaded, data.items, data.renewals, data.settings.reminders]);
+    void scheduleReminders(data.items, data.renewals, data.settings.reminders, data.settings.remindDays);
+  }, [loaded, data.items, data.renewals, data.settings.reminders, data.settings.remindDays]);
 
   useEffect(() => {
     const root = document.documentElement;
     if (data.settings.textSize === 'normal') delete root.dataset['text'];
     else root.dataset['text'] = data.settings.textSize;
     root.dataset['easy'] = data.settings.easyRead ? 'on' : 'off';
-  }, [data.settings.textSize, data.settings.easyRead]);
+    root.dataset['contrast'] = data.settings.contrast ? 'on' : 'off';
+    root.dataset['spacing'] = data.settings.wideSpacing ? 'wide' : 'normal';
+  }, [data.settings.textSize, data.settings.easyRead, data.settings.contrast, data.settings.wideSpacing]);
+
+  const [undoState, setUndoState] = useState<{ label: string; at: number; before: Item } | undefined>();
+  const [undoTick, setUndoTick] = useState(0);
 
   const value: StoreValue = {
     ready: authReady,
@@ -104,6 +130,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     data,
     backend,
     device,
+    plus: Boolean(ownPlan?.active),
+    paid: Boolean(ownPlan?.paid),
     saveItem: async (item) => {
       await backend.save('items', item);
       // A renewal moves on to its next date once its item is dealt with.
@@ -122,6 +150,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     saveRenewal: (r) => backend.save('renewals', r),
     removeRenewal: (id) => backend.remove('renewals', id),
     saveSettings: (s) => backend.saveDoc('settings', s),
+    undo: undoState ? { label: undoState.label, at: undoState.at } : undefined,
+    offerUndo: (label, before) => setUndoState({ label, at: Date.now(), before }),
+    runUndo: async () => {
+      if (!undoState) return undefined;
+      setUndoState(undefined);
+      await backend.save('items', { ...undoState.before, updatedAt: Date.now() });
+      setUndoTick((t) => t + 1);
+      return undoState.before.id;
+    },
+    clearUndo: () => setUndoState(undefined),
+    undoTick,
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
