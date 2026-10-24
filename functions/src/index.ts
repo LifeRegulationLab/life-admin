@@ -15,7 +15,7 @@ const MODEL_KEY = defineSecret('MODEL_API_KEY');
 const SPEECH_KEY = defineSecret('SPEECH_API_KEY');
 const HELPER_ON = defineString('HELPER_ON', { default: 'false' });
 const SPEECH_ON = defineString('SPEECH_ON', { default: 'false' });
-const ORIGINS = defineString('APP_ORIGINS', { default: 'capacitor://localhost' });
+const ORIGINS = defineString('APP_ORIGINS', { default: 'https://dealt-with-lrl.web.app,https://dealt-with-lrl.firebaseapp.com,capacitor://localhost' });
 /** Alex Bennett, calm British narration: the voice chosen for the app. */
 const VOICE = defineString('SPEECH_VOICE', { default: 'tw43HEeA0n5kOjSqCFT9' });
 const SPEECH_MODEL = defineString('SPEECH_MODEL', { default: 'eleven_v3' });
