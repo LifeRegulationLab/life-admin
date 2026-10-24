@@ -12,6 +12,7 @@ Author: Stuart Houlihan
 - **Stop and come back**: "Stop here" asks where you got to and shows it when you return, on the same step.
 - **Waiting for them**: after sending, it moves to Waiting with a chase date. "Their reply came" or "chase them now".
 - **The record**: everything about one thing kept together, saved as a PDF with the pages and proof.
+- **From another app**: a link such as `/add#kind=letter&title=...&text=...&from=regulate` opens Add (the words go after #, so they never reach the server) with the words filled in and says where they came from. Nothing is saved until the person saves it, and no app reads another's account.
 - **Pile of post**: photos of the front of each one first, no questions, then sort them one at a time.
 - **Renewals**: MOT, car tax, insurance, TV Licence, passport and more. Each turns into something to deal with a set number of days before, then moves to the next date.
 - **Someone to help**: hand one step to someone else by link (with an account) or by message. They see that step only, and the words only if you tick it. The link ends when the step is done.

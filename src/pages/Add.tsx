@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, Navigate, useNavigate, useParams } from 'react-router';
+import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router';
 import { Capture } from '../components/Capture';
 import { Unsure } from '../components/OnTheLetter';
 import { ScamWarning } from '../components/ScamWarning';
@@ -8,19 +8,36 @@ import { Card, Page, Text } from '../components/ui';
 import { ReadAloud, say, useEasy } from '../components/voice';
 import { KIND_INFO } from '../lib/content/kinds';
 import { readFacts } from '../lib/logic/facts';
+import { hasIncoming, incomingHash, readIncoming, sourceName, type Incoming } from '../lib/logic/incoming';
 import { newItem } from '../lib/logic/items';
 import { KINDS, type Kind, type PageLine } from '../lib/model/types';
 import { useStore } from '../lib/store/StoreProvider';
 
-/** First choose what kind of thing it is. */
+/** Says where the words came from, so a filled-in screen is never a surprise. */
+function FromApp({ incoming }: { incoming: Incoming }) {
+  if (!hasIncoming(incoming)) return null;
+  const name = sourceName(incoming);
+  return (
+    <Card>
+      <p>{name ? `These words came from ${name}.` : 'These words came with the link.'} Change anything you want before you save.</p>
+    </Card>
+  );
+}
+
+/** First choose what kind of thing it is. A link may say the kind, or bring words to carry on. */
 export function Add() {
   const easy = useEasy();
+  const { search, hash } = useLocation();
+  const incoming = readIncoming(search, hash);
+  const carry = incomingHash(incoming);
+  if (incoming.kind) return <Navigate to={`/add/${incoming.kind}${carry}`} replace />;
   return (
     <Page title={easy ? 'What is it?' : 'Add something'}>
       <ReadAloud text={easy ? 'What is it? Choose one.' : 'What kind of thing is it? Choose one.'} />
+      <FromApp incoming={incoming} />
       <div className="grid grid-cols-2 gap-3">
         {KINDS.map((k) => (
-          <Link key={k} to={`/add/${k}`} className="card flex min-h-24 flex-col items-start gap-2">
+          <Link key={k} to={`/add/${k}${carry}`} className="card flex min-h-24 flex-col items-start gap-2">
             <Picture name={KIND_INFO[k].picture} size={easy ? 40 : 30} />
             <span className="font-semibold">{easy ? KIND_INFO[k].easy : KIND_INFO[k].name}</span>
             {easy ? null : <span className="muted text-sm">{KIND_INFO[k].hint}</span>}
@@ -43,10 +60,12 @@ export function AddKind() {
   const { saveItem } = useStore();
   const navigate = useNavigate();
   const easy = useEasy();
-  const [text, setText] = useState('');
+  const { search, hash } = useLocation();
+  const [incoming] = useState(() => readIncoming(search, hash));
+  const [text, setText] = useState(incoming.text);
   const [pageIds, setPageIds] = useState<string[]>([]);
   const [lines, setLines] = useState<PageLine[]>([]);
-  const [title, setTitle] = useState('');
+  const [title, setTitle] = useState(incoming.title);
   const [from, setFrom] = useState('');
   const [reference, setReference] = useState('');
   const [touched, setTouched] = useState({ from: false, reference: false });
@@ -76,6 +95,7 @@ export function AddKind() {
   return (
     <Page title={easy ? info.easy : `Add a ${info.name.toLowerCase()}`} back="/add">
       <ReadAloud text={wordsFirst ? say(easy, 'Take a photo of each page, paste it, or type the important parts.', 'Take a photo. Or paste it. Or type it.') : say(easy, 'Say what it is and who it is with. Add a letter or email about it if there is one.', 'Say what it is. Say who it is with.')} />
+      <FromApp incoming={incoming} />
       {!wordsFirst ? (
         <Card className="flex flex-col gap-3">
           <Text label={easy ? 'What is it?' : 'What is it about?'} value={title} onChange={setTitle} placeholder={k === 'appointment' ? 'Dentist check-up' : k === 'call' ? 'Ring the bank about the card' : ''} />
