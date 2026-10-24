@@ -1,6 +1,7 @@
 import { APP_FULL_NAME } from '../brand';
 import { KIND_INFO, STATUS_INFO } from '../content/kinds';
 import { dueOf } from '../logic/items';
+import { stages } from '../logic/stages';
 import type { Item, RecordKind } from '../model/types';
 import type { Doc } from './pdf';
 
@@ -50,6 +51,8 @@ export function recordDoc(item: Item, author: string, now = Date.now()): Doc {
       items: u.quotes.map((q) => `"${q}"`),
     });
   }
+  const st = stages(item);
+  if (st.length) sections.push({ heading: 'How far it has got', items: st.map((x) => `${x.done ? 'Yes' : 'Not yet'}: ${x.label}`) });
   sections.push({
     heading: 'Steps',
     items: item.steps.map((s) => `${s.done ? 'Done' : 'Not done'}: ${s.title}${s.doneAt ? ` (${fmtDate(s.doneAt)})` : ''}${s.note ? `. ${s.note}` : ''}`),

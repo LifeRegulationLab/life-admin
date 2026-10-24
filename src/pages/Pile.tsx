@@ -9,7 +9,7 @@ import { stepsFor } from '../lib/content/steps';
 import { readFacts } from '../lib/logic/facts';
 import { lists, newItem, nothingToDo, whenWords } from '../lib/logic/items';
 import { KINDS, type Item, type Kind } from '../lib/model/types';
-import { readPicture } from '../lib/ocr';
+import { readPage } from '../lib/ocr';
 import { savePhoto, shrink } from '../lib/store/photos';
 import { useStore } from '../lib/store/StoreProvider';
 import { clock, useNow } from '../lib/time';
@@ -37,8 +37,9 @@ export function Pile() {
       const small = await shrink(f);
       const id = await savePhoto(small);
       let text = '';
+      let lines: Item['lines'] = [];
       try {
-        text = await readPicture(small);
+        ({ text, lines } = await readPage(small, id));
       } catch {
         text = '';
       }
@@ -50,6 +51,7 @@ export function Pile() {
           reference: facts.references[0]?.value ?? '',
           text,
           pageIds: [id],
+          lines,
           unsorted: true,
           ...(facts.deadline ? { dueAt: facts.deadline.value } : {}),
         }),

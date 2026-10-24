@@ -8,7 +8,7 @@ import { ReadAloud, say, useEasy } from '../components/voice';
 import { KIND_INFO } from '../lib/content/kinds';
 import { readFacts } from '../lib/logic/facts';
 import { newItem } from '../lib/logic/items';
-import { KINDS, type Kind } from '../lib/model/types';
+import { KINDS, type Kind, type PageLine } from '../lib/model/types';
 import { useStore } from '../lib/store/StoreProvider';
 
 /** First choose what kind of thing it is. */
@@ -44,6 +44,7 @@ export function AddKind() {
   const easy = useEasy();
   const [text, setText] = useState('');
   const [pageIds, setPageIds] = useState<string[]>([]);
+  const [lines, setLines] = useState<PageLine[]>([]);
   const [title, setTitle] = useState('');
   const [from, setFrom] = useState('');
   const [reference, setReference] = useState('');
@@ -64,6 +65,7 @@ export function AddKind() {
       reference: shownRef.trim(),
       text,
       pageIds,
+      lines,
       ...(facts.deadline ? { dueAt: facts.deadline.value } : {}),
     });
     await saveItem(item);
@@ -80,7 +82,7 @@ export function AddKind() {
         </Card>
       ) : null}
       <Card>
-        <Capture text={text} onText={setText} pageIds={pageIds} onPages={setPageIds} easy={easy} />
+        <Capture text={text} onText={setText} pageIds={pageIds} onPages={setPageIds} lines={lines} onLines={setLines} easy={easy} />
       </Card>
       {wordsFirst ? (
         <Card className="flex flex-col gap-3">

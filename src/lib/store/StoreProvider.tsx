@@ -40,6 +40,15 @@ export interface StoreValue {
   saveRenewal: (r: Renewal) => Promise<void>;
   removeRenewal: (id: string) => Promise<void>;
   saveSettings: (s: Settings) => Promise<void>;
+  /** The last change that can be taken back, shown as an Undo bar for a short while. */
+  undo: { label: string; at: number } | undefined;
+  /** Remembers how a thing was before a change, so Undo can put it back. */
+  offerUndo: (label: string, before: Item) => void;
+  /** Puts the thing back as it was, and returns its id. */
+  runUndo: () => Promise<string | undefined>;
+  clearUndo: () => void;
+  /** Goes up by one each time Undo is used, so open screens start again from the restored thing. */
+  undoTick: number;
 }
 
 const Ctx = createContext<StoreValue | null>(null);
@@ -100,15 +109,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!loaded) return;
-    void scheduleReminders(data.items, data.renewals, data.settings.reminders);
-  }, [loaded, data.items, data.renewals, data.settings.reminders]);
+    void scheduleReminders(data.items, data.renewals, data.settings.reminders, data.settings.remindDays);
+  }, [loaded, data.items, data.renewals, data.settings.reminders, data.settings.remindDays]);
 
   useEffect(() => {
     const root = document.documentElement;
     if (data.settings.textSize === 'normal') delete root.dataset['text'];
     else root.dataset['text'] = data.settings.textSize;
     root.dataset['easy'] = data.settings.easyRead ? 'on' : 'off';
-  }, [data.settings.textSize, data.settings.easyRead]);
+    root.dataset['contrast'] = data.settings.contrast ? 'on' : 'off';
+    root.dataset['spacing'] = data.settings.wideSpacing ? 'wide' : 'normal';
+  }, [data.settings.textSize, data.settings.easyRead, data.settings.contrast, data.settings.wideSpacing]);
+
+  const [undoState, setUndoState] = useState<{ label: string; at: number; before: Item } | undefined>();
+  const [undoTick, setUndoTick] = useState(0);
 
   const value: StoreValue = {
     ready: authReady,
@@ -136,6 +150,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     saveRenewal: (r) => backend.save('renewals', r),
     removeRenewal: (id) => backend.remove('renewals', id),
     saveSettings: (s) => backend.saveDoc('settings', s),
+    undo: undoState ? { label: undoState.label, at: undoState.at } : undefined,
+    offerUndo: (label, before) => setUndoState({ label, at: Date.now(), before }),
+    runUndo: async () => {
+      if (!undoState) return undefined;
+      setUndoState(undefined);
+      await backend.save('items', { ...undoState.before, updatedAt: Date.now() });
+      setUndoTick((t) => t + 1);
+      return undoState.before.id;
+    },
+    clearUndo: () => setUndoState(undefined),
+    undoTick,
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

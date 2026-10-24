@@ -1,6 +1,7 @@
 import { Link, NavLink, Outlet } from 'react-router';
 import { firebaseConfigured } from '../lib/firebase/app';
 import { useStore } from '../lib/store/StoreProvider';
+import { UndoBar } from './UndoBar';
 
 const TABS = [
   { to: '/', label: 'Today', end: true },
@@ -28,6 +29,7 @@ export function Layout() {
         Help
       </Link>
       <Outlet />
+      <UndoBar />
       <nav
         aria-label="Main"
         className="fixed inset-x-0 bottom-0 z-10 border-t border-[var(--line)] bg-[var(--panel)]"

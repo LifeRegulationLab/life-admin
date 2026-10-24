@@ -27,7 +27,7 @@ const HOW: { code: NonNullable<Step['how']>; text: string }[] = [
 
 /** One step on one screen, with help for doing it and a place for what was done. */
 export function StepScreen({ item, step, index, onDone }: { item: Item; step: Step; index: number; onDone: (next: Item) => void }) {
-  const { saveItem, data, user, plus } = useStore();
+  const { saveItem, data, user, plus, offerUndo } = useStore();
   const settings = data.settings;
   const easy = useEasy();
   const facts = readFacts(item.text, new Date(item.createdAt));
@@ -63,6 +63,7 @@ export function StepScreen({ item, step, index, onDone }: { item: Item; step: St
     if (ref && !proofIds.length) next = addRecord(next, step.type === 'pay' ? 'paid' : 'proof', `Reference: ${ref}`, { ref });
     next = completeStep(next, step.id);
     await saveItem(next);
+    offerUndo(`Done: ${step.title}`, item);
     onDone(next);
   };
 
@@ -70,6 +71,7 @@ export function StepScreen({ item, step, index, onDone }: { item: Item; step: St
     let next = withFields(item);
     next = startWaiting(next, waitFor, chase);
     await saveItem(next);
+    offerUndo('Moved to Waiting for them', item);
     onDone(next);
   };
 
@@ -116,6 +118,7 @@ export function StepScreen({ item, step, index, onDone }: { item: Item; step: St
         <div className="flex flex-col gap-1">
           <p className="muted text-sm">
             Step {index + 1} of {item.steps.length}
+            {step.minutes ? ` · usually about ${step.minutes} minutes` : ''}
           </p>
           <h2 className={`${easy ? 'text-2xl' : 'text-xl'} font-semibold`}>{step.title}</h2>
         </div>

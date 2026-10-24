@@ -6,13 +6,15 @@ import { StepsEditor } from '../components/flow/StepsEditor';
 import { Understand } from '../components/flow/Understand';
 import { itemName } from '../components/ItemRow';
 import { Picture } from '../components/Picture';
+import { Stages } from '../components/Stages';
 import { Area, Card, fromLocalInput, Page, toDateInput } from '../components/ui';
 import { ReadAloud, useEasy } from '../components/voice';
 import { removeShare } from '../lib/firebase/account';
-import { currentStep, dueOf, markDone, pause, reopenStep, replyCame, whenWords } from '../lib/logic/items';
+import { addRecord, currentStep, dueOf, markDone, pause, reopenStep, replyCame, whenWords } from '../lib/logic/items';
 import { CHASE_STEP, makeStep } from '../lib/content/steps';
 import type { Item } from '../lib/model/types';
 import { fmtDate } from '../lib/papers/record';
+import { savePhoto } from '../lib/store/photos';
 import { useStore } from '../lib/store/StoreProvider';
 import { clock, useNow } from '../lib/time';
 
@@ -30,14 +32,14 @@ function firstView(item: Item): View {
 /** One thing, one step per screen. Stopping part way keeps the place; coming back opens on it. */
 export function ItemFlow() {
   const { id } = useParams();
-  const { data } = useStore();
+  const { data, undoTick } = useStore();
   const item = data.items.find((i) => i.id === id);
   if (!item) return <Navigate to="/" replace />;
-  return <Flow key={item.id} item={item} />;
+  return <Flow key={`${item.id}:${undoTick}`} item={item} />;
 }
 
 function Flow({ item }: { item: Item }) {
-  const { saveItem, removeItem } = useStore();
+  const { saveItem, removeItem, offerUndo } = useStore();
   const navigate = useNavigate();
   const easy = useEasy();
   const now = useNow();
@@ -49,15 +51,27 @@ function Flow({ item }: { item: Item }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const due = dueOf(item);
 
-  const afterStep = (next: Item) => {
+  const afterStep = async (next: Item) => {
     const doneStep = item.steps.find((s) => !s.done && next.steps.find((n) => n.id === s.id)?.done);
-    if (doneStep) for (const s of shares.filter((x) => x.itemId === item.id && x.stepId === doneStep.id)) void removeShare(s.code);
+    if (doneStep) {
+      // What the supporter sent back is kept in the record before their link ends.
+      let kept = next;
+      for (const s of shares.filter((x) => x.itemId === item.id && x.stepId === doneStep.id)) {
+        if (s.reply || s.replyPhoto) {
+          const photoId = s.replyPhoto ? await savePhoto(await (await fetch(s.replyPhoto)).blob()).catch(() => undefined) : undefined;
+          kept = addRecord(kept, 'note', `${s.helperName || 'Your supporter'} helped with "${doneStep.title}": ${s.reply ?? ''}`.trim(), photoId ? { photoId } : {});
+        }
+        void removeShare(s.code);
+      }
+      if (kept !== next) await saveItem(kept);
+    }
     setView(firstView(next));
     window.scrollTo({ top: 0 });
   };
 
   const stop = async () => {
     await saveItem(pause(item, where));
+    offerUndo('Stopped here for now', item);
     navigate('/');
   };
 
@@ -116,7 +130,7 @@ function Flow({ item }: { item: Item }) {
             if (!step) return null;
             return (
               <>
-                <StepScreen key={step.id} item={item} step={step} index={view.index} onDone={afterStep} />
+                <StepScreen key={step.id} item={item} step={step} index={view.index} onDone={(n) => void afterStep(n)} />
                 {step.done ? (
                   <button type="button" className="btn" onClick={() => void saveItem(reopenStep(item, step.id))}>
                     This step is done. Do it again
@@ -149,6 +163,7 @@ function Flow({ item }: { item: Item }) {
           <Card className="flex flex-col gap-1">
             <p className="text-lg font-semibold">Waiting for {item.waiting.forWhat}</p>
             <p className="muted">Since {fmtDate(item.waiting.since)}. Chase on {fmtDate(item.waiting.chaseAt)}.</p>
+            <Stages item={item} />
           </Card>
           <Card className="flex flex-col gap-3">
             <Area label="Has it come? Say what came (optional)" value={came} onChange={setCame} rows={2} />
@@ -158,6 +173,7 @@ function Flow({ item }: { item: Item }) {
               onClick={() => {
                 const next = replyCame(item, came);
                 void saveItem(next);
+                offerUndo('Marked: their reply came', item);
                 setView(firstView(next));
               }}
             >
@@ -176,7 +192,7 @@ function Flow({ item }: { item: Item }) {
               Save the date
             </button>
           </Card>
-          <button type="button" className="btn" onClick={() => void saveItem(markDone(item, 'Finished without waiting any longer.')).then(() => setView({ name: 'done' }))}>
+          <button type="button" className="btn" onClick={() => void saveItem(markDone(item, 'Finished without waiting any longer.')).then(() => { offerUndo('Marked as dealt with', item); setView({ name: 'done' }); })}>
             It is finished: mark it dealt with
           </button>
         </div>
@@ -188,6 +204,7 @@ function Flow({ item }: { item: Item }) {
           <ReadAloud text="Dealt with. Everything about it is kept in the record." />
           <h2 className="text-2xl font-semibold">Dealt with</h2>
           <p>Everything about it is kept together in the record: what it said, what you did and the proof.</p>
+          <Stages item={item} />
           <Link to={`/item/${item.id}/record`} className="btn btn-primary">
             See the record
           </Link>
@@ -208,7 +225,7 @@ function Flow({ item }: { item: Item }) {
             <div className="warnbox flex flex-col gap-2">
               <p>Delete this and its record? This cannot be undone.</p>
               <div className="flex gap-2">
-                <button type="button" className="btn btn-warn" onClick={() => void removeItem(item.id).then(() => navigate('/'))}>
+                <button type="button" className="btn btn-warn" onClick={() => void removeItem(item.id).then(() => { offerUndo('Deleted', item); navigate('/'); })}>
                   Delete it
                 </button>
                 <button type="button" className="btn" onClick={() => setConfirmDelete(false)}>

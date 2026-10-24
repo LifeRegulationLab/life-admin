@@ -11,7 +11,7 @@ describe('the record', () => {
     let item = newItem('letter', { title: 'Council Tax discount review', from: 'Brackenford Borough Council', reference: '6001 4482 7', text: COUNCIL_LETTER }, NOW);
     item = completeStep(item, item.steps[0]?.id ?? '', NOW);
     const doc = recordDoc(item, 'Jo Taylor', NOW);
-    expect(doc.sections.map((s) => s.heading)).toEqual(['What it is', 'Steps', 'Record', 'The words of the original']);
+    expect(doc.sections.map((s) => s.heading)).toEqual(['What it is', 'How far it has got', 'Steps', 'Record', 'The words of the original']);
     const bytes = await renderPdf(doc, new Date(NOW));
     const pdf = await PDFDocument.load(bytes, { updateMetadata: false });
     expect(pdf.getAuthor()).toBe('Jo Taylor');

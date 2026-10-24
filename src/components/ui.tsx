@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { canDictate, dictate } from '../lib/dictate';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 
@@ -66,7 +68,33 @@ export function Area({ label, hint, value, onChange, rows = 3 }: { label: string
   return (
     <Field label={label} {...(hint ? { hint } : {})}>
       <textarea className="field" rows={rows} value={value} onChange={(e) => onChange(e.target.value)} />
+      <Speak label={label} onText={(t) => onChange(value ? `${value} ${t}` : t)} />
     </Field>
+  );
+}
+
+/** A microphone button under a box: say it instead of typing. Hidden where the phone cannot listen. */
+export function Speak({ label, onText }: { label: string; onText: (t: string) => void }) {
+  const [listening, setListening] = useState<(() => void) | undefined>();
+  if (!canDictate()) return null;
+  return (
+    <button
+      type="button"
+      className="chip mt-1"
+      aria-pressed={Boolean(listening)}
+      aria-label={listening ? 'Stop listening' : `Say it instead of typing: ${label}`}
+      onClick={() => {
+        if (listening) {
+          listening();
+          setListening(undefined);
+          return;
+        }
+        const stop = dictate(onText, () => setListening(undefined));
+        setListening(() => stop);
+      }}
+    >
+      {listening ? 'Listening… tap to stop' : 'Say it instead'}
+    </button>
   );
 }
 

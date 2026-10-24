@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Navigate, useParams } from 'react-router';
 import { Thumb } from '../components/Capture';
 import { itemName } from '../components/ItemRow';
+import { Linked } from '../components/Linked';
+import { Stages } from '../components/Stages';
 import { Card, Empty, Page } from '../components/ui';
 import { ReadAloud } from '../components/voice';
 import { STATUS_INFO } from '../lib/content/kinds';
@@ -50,7 +52,9 @@ export function RecordPage() {
         <h2 className="text-lg font-semibold">{itemName(item)}</h2>
         <p className="muted text-sm">{[item.from, item.reference && `Ref ${item.reference}`, `Came ${fmtDate(item.createdAt)}`, STATUS_INFO[item.status].name].filter(Boolean).join(' · ')}</p>
         {item.understanding?.plain ? <p>{item.understanding.plain}</p> : null}
+        <Stages item={item} />
       </Card>
+      <Linked item={item} />
       <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void makePdf()}>
         {busy ? 'Making it…' : 'Save the record as a PDF'}
       </button>

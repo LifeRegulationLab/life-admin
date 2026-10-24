@@ -10,8 +10,25 @@ import { useStore } from '../../lib/store/StoreProvider';
 import { Thumb } from '../Capture';
 import { Card, Choice, fromLocalInput, Text, toDateInput } from '../ui';
 import { clock } from '../../lib/time';
+import { FoundFact, OnTheLetter } from '../OnTheLetter';
 import { PlusNote } from '../PlusNote';
+import { Words } from '../Words';
 import { ReadAloud, say, useEasy } from '../voice';
+
+type Level = 'easy' | 'plain' | 'full';
+const LEVELS: { code: Level; text: string }[] = [
+  { code: 'easy', text: 'Easy-read' },
+  { code: 'plain', text: 'Plain' },
+  { code: 'full', text: 'More detail' },
+];
+
+/** Easy-read shown one idea at a time: each sentence on its own card. */
+export function ideas(text: string): string[] {
+  return text
+    .split(/(?<=[.?])\s+|\n+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
 
 const NEEDS: { code: Needs; text: string }[] = [
   { code: 'yes', text: 'Yes' },
@@ -24,7 +41,7 @@ const NEEDS: { code: Needs; text: string }[] = [
  * Every fact shows the words it came from. The helper can fill it in; it works without it too.
  */
 export function Understand({ item, onNext, onDone }: { item: Item; onNext: () => void; onDone: () => void }) {
-  const { saveItem, data, user, plus } = useStore();
+  const { saveItem, data, user, plus, offerUndo } = useStore();
   const settings = data.settings;
   const easy = useEasy();
   const facts = readFacts(item.text, new Date(item.createdAt));
@@ -38,6 +55,7 @@ export function Understand({ item, onNext, onDone }: { item: Item; onNext: () =>
   const [showWords, setShowWords] = useState(!u);
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState('');
+  const [level, setLevel] = useState<Level>(easy ? 'easy' : 'plain');
   const canHelp = settings.helperOn && helperAvailable() && Boolean(user) && plus && item.text.trim().length > 20;
 
   const keep = async (next: Partial<Understanding>, extra: Partial<Item> = {}) => {
@@ -94,6 +112,7 @@ export function Understand({ item, onNext, onDone }: { item: Item; onNext: () =>
   };
 
   const nothing = async () => {
+    offerUndo('Filed as nothing to do', item);
     await saveItem(nothingToDo({ ...item, understanding: { plain: u?.plain ?? '', easy: u?.easy ?? '', quotes: u?.quotes ?? [], by: u?.by ?? 'me', needs: 'no', ask: '', consequence: '' } }));
     onDone();
   };
@@ -122,15 +141,34 @@ export function Understand({ item, onNext, onDone }: { item: Item; onNext: () =>
       {u?.plain ? (
         <Card className="flex flex-col gap-2">
           <h2 className="font-semibold">What it is</h2>
-          <p className={easy ? 'text-lg' : ''}>{say(easy, u.plain, u.easy)}</p>
+          <div className="flex flex-wrap gap-2" role="group" aria-label="How much to show">
+            {LEVELS.filter((l) => l.code !== 'full' || u.full).map((l) => (
+              <button key={l.code} type="button" className="chip" aria-pressed={level === l.code} onClick={() => setLevel(l.code)}>
+                {l.text}
+              </button>
+            ))}
+          </div>
+          {level === 'easy' ? (
+            <ol className="flex flex-col gap-2">
+              {ideas(u.easy || u.plain).map((idea, i) => (
+                <li key={i} className="rounded-lg border border-[var(--line)] p-3 text-lg">
+                  {idea}
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <Words text={level === 'full' && u.full ? u.full : u.plain} />
+          )}
           {u.quotes.length ? (
             <div className="flex flex-col gap-1">
               <p className="muted text-sm">Found in the {item.kind === 'email' ? 'email' : 'letter'}:</p>
               {u.quotes.map((q) => (
-                <blockquote key={q} className="quote">
-                  {q}
-                </blockquote>
+                <div key={q} className="flex flex-col gap-1">
+                  <blockquote className="quote">{q}</blockquote>
+                  <OnTheLetter item={item} quote={q} />
+                </div>
               ))}
+              <p className="muted text-xs">Written by the helper from the words above. Check anything important on the letter.</p>
             </div>
           ) : null}
         </Card>
@@ -146,9 +184,10 @@ export function Understand({ item, onNext, onDone }: { item: Item; onNext: () =>
 
       <Card className="flex flex-col gap-4">
         <Choice label={easy ? 'Do you need to do something?' : 'Does it ask you to do anything?'} options={NEEDS} value={needs} onChange={setNeeds} />
+        {needs === 'unclear' && u?.unclear ? <p className="text-sm">Not clear from the letter: {u.unclear}</p> : null}
         {needs === 'unclear' ? (
           <p className="muted text-sm">
-            If it is not clear, ring them and ask.{facts.phones[0] ? ` Their number is ${facts.phones[0].value}.` : ''} Asking is allowed and costs nothing.
+            If it is not clear, ring them and ask, or ask someone you trust to look at it with you.{facts.phones[0] ? ` Their number is ${facts.phones[0].value}.` : ''} Asking is allowed and costs nothing.
           </p>
         ) : null}
         {needs !== 'no' ? (
@@ -163,8 +202,9 @@ export function Understand({ item, onNext, onDone }: { item: Item; onNext: () =>
                 Use {fmtDate(facts.deadline.value)}, found: “{facts.deadline.quote}”
               </button>
             ) : facts.deadline ? (
-              <p className="muted text-sm">Found: “{facts.deadline.quote}”</p>
+              <p className="muted text-sm">Found: “{facts.deadline.quote}”. Check this on the letter.</p>
             ) : null}
+            {facts.deadline ? <OnTheLetter item={item} quote={facts.deadline.quote} /> : null}
             <Text label={easy ? 'What happens if you do nothing?' : 'What happens if nothing is done? (optional)'} value={consequence} onChange={setConsequence} />
           </>
         ) : null}
@@ -173,17 +213,17 @@ export function Understand({ item, onNext, onDone }: { item: Item; onNext: () =>
       {facts.amounts.length || facts.references.length || facts.phones.length ? (
         <Card className="flex flex-col gap-2">
           <h2 className="font-semibold">Found in it</h2>
-          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
+          <div className="flex flex-col gap-2">
             {facts.amounts.slice(0, 3).map((a) => (
-              <Fact key={`a${a.value}`} label="Amount" value={a.value} />
+              <FoundFact key={`a${a.value}`} item={item} label="Amount" value={a.value} quote={a.quote} />
             ))}
             {facts.references.slice(0, 3).map((r) => (
-              <Fact key={`r${r.value}`} label="Reference" value={r.value} />
+              <FoundFact key={`r${r.value}`} item={item} label="Reference" value={r.value} quote={r.quote} />
             ))}
             {facts.phones.slice(0, 3).map((p) => (
-              <Fact key={`p${p.value}`} label="Phone" value={p.value} href={`tel:${p.value.replace(/\s/g, '')}`} />
+              <FoundFact key={`p${p.value}`} item={item} label="Phone" value={p.value} quote={p.quote} href={`tel:${p.value.replace(/\s/g, '')}`} />
             ))}
-          </dl>
+          </div>
         </Card>
       ) : null}
 
@@ -201,7 +241,8 @@ export function Understand({ item, onNext, onDone }: { item: Item; onNext: () =>
                   ))}
                 </div>
               ) : null}
-              <p className="whitespace-pre-wrap text-sm">{item.text}</p>
+              <p className="muted text-xs">Tap an underlined word to see what it means.</p>
+              <Words text={item.text} className="text-sm" />
             </>
           ) : null}
         </Card>
@@ -227,14 +268,5 @@ export function Understand({ item, onNext, onDone }: { item: Item; onNext: () =>
         </button>
       )}
     </div>
-  );
-}
-
-function Fact({ label, value, href }: { label: string; value: string; href?: string }) {
-  return (
-    <>
-      <dt className="muted">{label}</dt>
-      <dd>{href ? <a href={href}>{value}</a> : value}</dd>
-    </>
   );
 }

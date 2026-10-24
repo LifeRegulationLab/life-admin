@@ -18,10 +18,12 @@ export type HelperResult<T> = { ok: true; value: T } | { ok: false; text: string
 interface Understood {
   plain: string;
   easy: string;
+  full?: string;
   needs: 'yes' | 'no' | 'unclear';
   ask: string;
   due: string;
   consequence: string;
+  unclear?: string;
   quotes: string[];
   from: string;
   reference: string;
@@ -76,6 +78,8 @@ export function toUnderstanding(u: Understood): Understanding {
   return {
     plain: u.plain,
     easy: u.easy || u.plain,
+    ...(u.full ? { full: u.full } : {}),
+    ...(u.unclear ? { unclear: u.unclear } : {}),
     needs: u.needs,
     ask: u.ask,
     consequence: u.consequence,

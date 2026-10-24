@@ -19,6 +19,14 @@ const SIZES: { code: TextSize; text: string }[] = [
   { code: 'larger', text: 'Larger' },
 ];
 
+const REMIND = [
+  { days: 14, text: 'Two weeks before' },
+  { days: 7, text: 'A week before' },
+  { days: 3, text: 'Three days before' },
+  { days: 1, text: 'The day before' },
+  { days: 0, text: 'On the day' },
+];
+
 const READ: { code: ReadAloudSetting; text: string }[] = [
   { code: 'off', text: 'Off' },
   { code: 'button', text: 'A button on each screen' },
@@ -104,6 +112,14 @@ export function Me() {
           <span>Show pictures beside things</span>
         </label>
         <Choice label="Text size" options={SIZES} value={s.textSize} onChange={(v) => set({ textSize: v })} />
+        <label className="flex items-center gap-3">
+          <input type="checkbox" checked={s.contrast} onChange={(e) => set({ contrast: e.target.checked })} />
+          <span>High contrast</span>
+        </label>
+        <label className="flex items-center gap-3">
+          <input type="checkbox" checked={s.wideSpacing} onChange={(e) => set({ wideSpacing: e.target.checked })} />
+          <span>More space between lines and words</span>
+        </label>
         <Choice label="Read aloud" options={READ} value={s.readAloud} onChange={(v) => set({ readAloud: v })} />
         <p className="muted text-sm">
           {!recordedVoiceAvailable()
@@ -156,8 +172,26 @@ export function Me() {
         <h2 className="font-semibold">Reminders and the helper</h2>
         <label className="flex items-center gap-3">
           <input type="checkbox" checked={s.reminders} onChange={(e) => set({ reminders: e.target.checked })} />
-          <span>Remind me three days before a date, on the day, and when it is time to chase</span>
+          <span>Remind me before a date, and when it is time to chase</span>
         </label>
+        {s.reminders ? (
+          <fieldset className="flex flex-col gap-2">
+            <legend className="label">When to remind me</legend>
+            <div className="flex flex-wrap gap-2">
+              {REMIND.map((r) => (
+                <button
+                  key={r.days}
+                  type="button"
+                  className="chip"
+                  aria-pressed={s.remindDays.includes(r.days)}
+                  onClick={() => set({ remindDays: s.remindDays.includes(r.days) ? s.remindDays.filter((d) => d !== r.days) : [...s.remindDays, r.days].sort((a, b) => b - a) })}
+                >
+                  {r.text}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+        ) : null}
         {helperAvailable() && plus ? (
           <>
             <label className="flex items-center gap-3">

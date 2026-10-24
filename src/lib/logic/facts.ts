@@ -71,11 +71,51 @@ export function findDates(text: string, today = new Date()): Found<number>[] {
   return out.sort((a, b) => a.value - b.value);
 }
 
+const NUMBER_WORDS: Record<string, number> = {
+  one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+  eleven: 11, twelve: 12, fourteen: 14, fifteen: 15, twenty: 20, 'twenty-one': 21, 'twenty one': 21,
+  'twenty-eight': 28, 'twenty eight': 28, thirty: 30, sixty: 60,
+};
+
+function addWorkingDays(from: number, days: number): number {
+  const d = new Date(from);
+  let left = days;
+  while (left > 0) {
+    d.setDate(d.getDate() + 1);
+    if (d.getDay() !== 0 && d.getDay() !== 6) left--;
+  }
+  return d.getTime();
+}
+
+/**
+ * "Within 28 days of the date of this letter" turned into a date, counted from the letter's own
+ * date (the earliest date in it that is not in the future), or from the day it was added.
+ */
+export function findWithin(text: string, today = new Date()): Found<number> | undefined {
+  const re = /\bwithin\s+(\d{1,3}|[a-z]+(?:[- ][a-z]+)?)\s+(working\s+|calendar\s+|clear\s+)?(days?|weeks?|months?)\b/i;
+  const m = re.exec(text);
+  if (!m) return undefined;
+  const n = /^\d+$/.test(m[1] ?? '') ? Number(m[1]) : NUMBER_WORDS[(m[1] ?? '').toLowerCase()];
+  if (!n) return undefined;
+  const dated = findDates(text, today).filter((d) => d.value <= today.getTime() + 864e5);
+  const from = dated[0]?.value ?? new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12).getTime();
+  const unit = (m[3] ?? '').toLowerCase();
+  let value: number;
+  if (unit.startsWith('month')) {
+    const d = new Date(from);
+    d.setMonth(d.getMonth() + n);
+    value = d.getTime();
+  } else if (unit.startsWith('week')) value = from + n * 7 * 864e5;
+  else if ((m[2] ?? '').toLowerCase().startsWith('working')) value = addWorkingDays(from, n);
+  else value = from + n * 864e5;
+  return { value, quote: lineAround(text, m.index, m[0].length) };
+}
+
 const DEADLINE_WORDS = /\b(by|before|no later than|deadline|reply|respond|return|due|must|within|until|expires?|pay)\b/i;
 
 export function findDeadline(text: string, today = new Date()): Found<number> | undefined {
   const dates = findDates(text, today).filter((d) => d.value >= today.getTime() - 864e5);
-  return dates.find((d) => DEADLINE_WORDS.test(d.quote)) ?? undefined;
+  return dates.find((d) => DEADLINE_WORDS.test(d.quote)) ?? findWithin(text, today);
 }
 
 export function findAmounts(text: string): Found<string>[] {

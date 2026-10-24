@@ -116,9 +116,20 @@ export function listenShares(uid: string, onChange: (shares: Share[]) => void): 
   );
 }
 
-/** The supporter's answer. They can add a reply and their name, nothing else. */
-export async function replyToShare(code: string, reply: string, helperName: string): Promise<void> {
-  await updateDoc(doc(firebase().db, 'shares', code), { reply: reply.slice(0, 4000), helperName: helperName.slice(0, 80), repliedAt: Date.now() });
+/** The supporter's answer: a reply, their name, one photo and whether their part is done. Nothing else. */
+export async function replyToShare(code: string, reply: string, helperName: string, extra: { photo?: string; done?: boolean } = {}): Promise<void> {
+  await updateDoc(doc(firebase().db, 'shares', code), {
+    reply: reply.slice(0, 4000),
+    helperName: helperName.slice(0, 80),
+    repliedAt: Date.now(),
+    ...(extra.photo ? { replyPhoto: extra.photo } : {}),
+    ...(extra.done !== undefined ? { helperDone: extra.done } : {}),
+  });
+}
+
+/** Notes, once, that the supporter opened the link. */
+export async function markShareOpened(code: string): Promise<void> {
+  await updateDoc(doc(firebase().db, 'shares', code), { openedAt: Date.now() }).catch(() => undefined);
 }
 
 export async function removeShare(code: string): Promise<void> {
