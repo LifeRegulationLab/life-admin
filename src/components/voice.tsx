@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { onPlaying, speak, stop } from '../lib/speech';
-import { useSettings } from '../lib/store/StoreProvider';
+import { useSettings, useStore } from '../lib/store/StoreProvider';
 import { Picture } from './Picture';
 
 /** The read aloud button. With "Read every screen" on in Me, each screen reads itself when it opens. */
 export function ReadAloud({ text, auto = true }: { text: string; auto?: boolean }) {
-  const settings = useSettings();
+  const { data, plus } = useStore();
+  const settings = data.settings;
   const [playing, setPlaying] = useState(false);
   const [note, setNote] = useState('');
 
@@ -15,14 +16,14 @@ export function ReadAloud({ text, auto = true }: { text: string; auto?: boolean 
   useEffect(() => {
     if (!auto || settings.readAloud !== 'every' || !text) return;
     let live = true;
-    void speak(text, settings.deviceVoice).then((r) => {
+    void speak(text, settings.deviceVoice, plus).then((r) => {
       if (live && r === 'unavailable') setNote(UNAVAILABLE);
     });
     return () => {
       live = false;
       stop();
     };
-  }, [auto, text, settings.readAloud, settings.deviceVoice]);
+  }, [auto, text, settings.readAloud, settings.deviceVoice, plus]);
 
   if (settings.readAloud === 'off') return null;
 
@@ -32,7 +33,7 @@ export function ReadAloud({ text, auto = true }: { text: string; auto?: boolean 
       stop();
       return;
     }
-    const r = await speak(text, settings.deviceVoice);
+    const r = await speak(text, settings.deviceVoice, plus);
     if (r === 'unavailable') setNote(UNAVAILABLE);
   };
 
@@ -47,7 +48,7 @@ export function ReadAloud({ text, auto = true }: { text: string; auto?: boolean 
   );
 }
 
-const UNAVAILABLE = 'Read aloud needs a signal and an account. You can also switch on the phone’s own voice in Me.';
+const UNAVAILABLE = 'The recorded voice is part of Dealt With Plus and needs a signal. You can also switch on the phone’s own voice in Me.';
 
 /** Plain or easy-read words, depending on the setting in Me. */
 export function useEasy(): boolean {

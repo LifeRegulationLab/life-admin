@@ -3,7 +3,8 @@ import { get, put } from './store/blobs';
 
 /**
  * Read aloud in the app's recorded voice (calm, low, British). Each piece of text is fetched once
- * and kept on the device, so it plays straight away the next time and with no signal. The phone's
+ * and kept on the device, so it plays straight away the next time and with no signal. New recordings
+ * are part of Dealt With Plus. The phone's
  * own voice is used only if the person has chosen it in Me.
  */
 
@@ -40,11 +41,11 @@ export function stop(): void {
   tell(false);
 }
 
-async function fetchVoice(text: string): Promise<Blob | undefined> {
+async function fetchVoice(text: string, plus: boolean): Promise<Blob | undefined> {
   const k = await key(text);
   const kept = await get('speech', k);
   if (kept) return kept;
-  if (!recordedVoiceAvailable()) return undefined;
+  if (!recordedVoiceAvailable() || !plus) return undefined;
   const user = firebase().auth.currentUser;
   if (!user) return undefined;
   try {
@@ -64,12 +65,15 @@ async function fetchVoice(text: string): Promise<Blob | undefined> {
 
 export type SpeakResult = 'playing' | 'unavailable';
 
-/** Reads the text. Returns 'unavailable' when there is no recorded voice and the phone's voice is not chosen. */
-export async function speak(text: string, deviceVoice: boolean): Promise<SpeakResult> {
+/**
+ * Reads the text. New recordings need Dealt With Plus; ones already kept on the phone always play.
+ * Returns 'unavailable' when there is no recorded voice and the phone's voice is not chosen.
+ */
+export async function speak(text: string, deviceVoice: boolean, plus = false): Promise<SpeakResult> {
   stop();
   const clean = text.replace(/\s+/g, ' ').trim().slice(0, 2500);
   if (!clean) return 'unavailable';
-  const blob = await fetchVoice(clean);
+  const blob = await fetchVoice(clean, plus);
   if (blob) {
     player ??= new Audio();
     player.src = URL.createObjectURL(blob);

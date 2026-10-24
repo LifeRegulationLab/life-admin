@@ -35,10 +35,14 @@ export const SYSTEMS = {
 
 export type Job = keyof typeof SYSTEMS;
 
+export const PLUS_TEXT = 'The helper is part of Dealt With Plus. Every step works without it.';
+
 export interface HelperDeps {
   on: string | undefined;
   origins: readonly string[];
   verifyUser: (token: string) => Promise<string | undefined>;
+  /** Whether this person has Dealt With Plus (or is a tester). */
+  hasPlus: (uid: string) => Promise<boolean>;
   model: (system: string, messages: { role: 'user' | 'assistant'; content: string }[], maxTokens: number) => Promise<{ text: string; refused: boolean }>;
 }
 
@@ -146,6 +150,7 @@ export async function handleHelper(request: Request, deps: HelperDeps): Promise<
   const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
   const uid = token ? await deps.verifyUser(token) : undefined;
   if (!uid) return send(401, { text: 'Sign in to use the helper.' });
+  if (!(await deps.hasPlus(uid))) return send(402, { text: PLUS_TEXT, plus: true });
 
   let parsed: HelperRequest | undefined;
   try {

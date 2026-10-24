@@ -12,6 +12,12 @@ service cloud.firestore {
       allow read, write: if signedIn() && request.auth.uid == uid;
     }
 
+    // Dealt With Plus. Only the server writes plans, from Stripe's signed messages.
+    match /plans/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+
     match /shares/{code} {
       allow get: if resource.data.expiresAt > request.time.toMillis()
         || (signedIn() && resource.data.owner == request.auth.uid);

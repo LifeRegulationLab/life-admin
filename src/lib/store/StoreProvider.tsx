@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, type R
 import type { User } from 'firebase/auth';
 import { STORAGE_PREFIX } from '../brand';
 import { firebase, firebaseConfigured } from '../firebase/app';
-import { watchUser } from '../firebase/account';
+import { refreshPlan, watchPlan, watchUser } from '../firebase/account';
 import { SharedBackend } from '../firebase/shared';
 import { renewalsNeedingItems, roll } from '../logic/renewals';
 import { DEFAULT_SETTINGS, type Item, type Renewal, type Settings } from '../model/types';
@@ -31,6 +31,10 @@ export interface StoreValue {
   data: Data;
   backend: Backend;
   device: LocalBackend;
+  /** Has Dealt With Plus, which opens the helper and the recorded voice. The server checks again on every call. */
+  plus: boolean;
+  /** Pays for Plus through Stripe (testers have Plus without paying). */
+  paid: boolean;
   saveItem: (item: Item) => Promise<void>;
   removeItem: (id: string) => Promise<void>;
   saveRenewal: (r: Renewal) => Promise<void>;
@@ -53,6 +57,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setAuthReady(true);
     });
   }, []);
+
+  const [plan, setPlan] = useState<{ uid: string; active: boolean; paid: boolean } | undefined>();
+  useEffect(() => {
+    if (!user) return;
+    void refreshPlan();
+    return watchPlan(user.uid, (p) => setPlan({ uid: user.uid, ...p }));
+  }, [user]);
+  const ownPlan = user && plan?.uid === user.uid ? plan : undefined;
 
   const backend: Backend = useMemo(() => (user ? new SharedBackend(firebase().db, user.uid) : device), [user, device]);
 
@@ -104,6 +116,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     data,
     backend,
     device,
+    plus: Boolean(ownPlan?.active),
+    paid: Boolean(ownPlan?.paid),
     saveItem: async (item) => {
       await backend.save('items', item);
       // A renewal moves on to its next date once its item is dealt with.

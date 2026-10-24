@@ -4,7 +4,7 @@ import { Card, Choice, Field, Page, Text } from '../components/ui';
 import { ReadAloud } from '../components/voice';
 import { APP_FULL_NAME, APP_NAME } from '../lib/brand';
 import { firebaseConfigured } from '../lib/firebase/app';
-import { deleteEverything, signOut } from '../lib/firebase/account';
+import { deleteEverything, openBilling, signOut } from '../lib/firebase/account';
 import { helperAvailable } from '../lib/helper/client';
 import type { ReadAloud as ReadAloudSetting, Settings, TextSize } from '../lib/model/types';
 import { saveFile } from '../lib/shell';
@@ -27,7 +27,11 @@ const READ: { code: ReadAloudSetting; text: string }[] = [
 
 /** The person's own settings, the account, and leaving. */
 export function Me() {
-  const { data, saveSettings, user, device, saveItem, saveRenewal } = useStore();
+  const { data, saveSettings, user, device, saveItem, saveRenewal, plus, paid } = useStore();
+  const [billingNote, setBillingNote] = useState('');
+  const thanks = new URLSearchParams(window.location.search).get('plus') === 'thanks';
+  const onSale = Boolean(import.meta.env['VITE_CHECKOUT_URL']);
+  const billing = (which: 'checkout' | 'portal') => void openBilling(which).then((e) => setBillingNote(e ?? ''));
   const navigate = useNavigate();
   const s = data.settings;
   const [name, setName] = useState(s.name);
@@ -102,7 +106,11 @@ export function Me() {
         <Choice label="Text size" options={SIZES} value={s.textSize} onChange={(v) => set({ textSize: v })} />
         <Choice label="Read aloud" options={READ} value={s.readAloud} onChange={(v) => set({ readAloud: v })} />
         <p className="muted text-sm">
-          {recordedVoiceAvailable() ? 'Read aloud uses a calm recorded voice. It needs an account and a signal the first time each screen is read.' : 'The recorded voice is not switched on in this version.'}
+          {!recordedVoiceAvailable()
+            ? 'The recorded voice is not switched on in this version.'
+            : plus
+              ? 'Read aloud uses a calm recorded voice. It needs a signal the first time each screen is read.'
+              : 'The calm recorded voice is part of Dealt With Plus. Screens already recorded on this phone still play.'}
         </p>
         <label className="flex items-center gap-3">
           <input type="checkbox" checked={s.deviceVoice} onChange={(e) => set({ deviceVoice: e.target.checked })} />
@@ -110,13 +118,47 @@ export function Me() {
         </label>
       </Card>
 
+      {firebaseConfigured() && (onSale || plus) ? (
+        <div id="plus">
+          <Card className="flex flex-col gap-3">
+            <h2 className="font-semibold">Dealt With Plus</h2>
+            {plus ? (
+              <>
+                <p>You have Plus{paid ? '' : ' while you test the app'}. The helper and the recorded voice are open to you.</p>
+                {paid ? (
+                  <button type="button" className="btn self-start" onClick={() => billing('portal')}>
+                    Change card or cancel Plus
+                  </button>
+                ) : null}
+              </>
+            ) : (
+              <>
+                <p>Plus adds the helper, which explains letters in plain words, drafts replies, writes call scripts and answers questions. It also adds the calm recorded voice for read aloud.</p>
+                <p className="muted text-sm">Paid monthly, cancel any time. Everything else in the app stays free.</p>
+                {user ? (
+                  <button type="button" className="btn btn-primary self-start" onClick={() => billing('checkout')}>
+                    Get Plus
+                  </button>
+                ) : (
+                  <Link to="/signin" className="btn btn-primary self-start">
+                    Make an account first
+                  </Link>
+                )}
+              </>
+            )}
+            {billingNote ? <p className="warnbox">{billingNote}</p> : null}
+            {thanks && !plus ? <p className="muted text-sm">Payment done. Plus switches on within a minute.</p> : null}
+          </Card>
+        </div>
+      ) : null}
+
       <Card className="flex flex-col gap-3">
         <h2 className="font-semibold">Reminders and the helper</h2>
         <label className="flex items-center gap-3">
           <input type="checkbox" checked={s.reminders} onChange={(e) => set({ reminders: e.target.checked })} />
           <span>Remind me three days before a date, on the day, and when it is time to chase</span>
         </label>
-        {helperAvailable() ? (
+        {helperAvailable() && plus ? (
           <>
             <label className="flex items-center gap-3">
               <input type="checkbox" checked={s.helperOn} onChange={(e) => set({ helperOn: e.target.checked })} />
@@ -141,7 +183,7 @@ export function Me() {
           </>
         ) : (
           <>
-            <p>Everything is kept on this phone. An account keeps a copy safe, lets you use the helper and the recorded voice, and lets someone help with one step by link.</p>
+            <p>You are looking around. What you add is kept on this phone only. An account keeps it safe if you lose or change the phone, and lets someone help with one step by link.</p>
             <Link to="/signin" className="btn btn-primary self-start">
               Make an account or sign in
             </Link>
@@ -176,7 +218,7 @@ export function Me() {
           <div className="warnbox flex flex-col gap-2">
             <p>
               {sure === 'account'
-                ? `This deletes your ${APP_NAME} account and everything in it. Your other Life Regulation Lab apps are not touched. It cannot be undone. Save a copy first if you want one.`
+                ? `This deletes your ${APP_NAME} account and everything in it. Your other Life Regulation Lab apps are not touched. It cannot be undone. Save a copy first if you want one.${paid ? ' Cancel Plus first, using "Change card or cancel Plus" above, so the payments stop.' : ''}`
                 : 'This deletes everything this app keeps on this phone. It cannot be undone. Save a copy first if you want one.'}
             </p>
             <div className="flex gap-2">

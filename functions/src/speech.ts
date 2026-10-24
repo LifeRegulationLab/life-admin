@@ -1,16 +1,20 @@
 /**
  * Read aloud. Turns a screen's words into the recorded voice the app uses everywhere, so the
- * phone's own voice is never needed. Signed-in people only, so the cost stays known. Nothing is stored.
+ * phone's own voice is never needed. Signed-in people with Plus only, so the cost stays known. Nothing is stored.
  */
 
 export interface SpeechDeps {
   on: string | undefined;
   origins: readonly string[];
   verifyUser: (token: string) => Promise<string | undefined>;
+  /** Whether this person has Dealt With Plus (or is a tester). */
+  hasPlus: (uid: string) => Promise<boolean>;
   speak: (text: string) => Promise<ArrayBuffer>;
 }
 
 export const MAX_SPEECH = 2500;
+
+export const PLUS_VOICE_TEXT = 'The recorded voice is part of Dealt With Plus.';
 
 /** The direction that keeps the voice calm and low. It is not spoken. */
 export const VOICE_DIRECTION = '[calm, low, relaxed voice] ';
@@ -31,6 +35,7 @@ export async function handleSpeech(request: Request, deps: SpeechDeps): Promise<
   const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
   const uid = token ? await deps.verifyUser(token) : undefined;
   if (!uid) return fail(401, 'Sign in to use read aloud.');
+  if (!(await deps.hasPlus(uid))) return fail(402, PLUS_VOICE_TEXT);
   let text = '';
   try {
     const body = (await request.json()) as { text?: unknown };

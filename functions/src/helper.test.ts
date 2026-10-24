@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import { handleHelper, readUnderstood, type HelperDeps } from './helper';
+import { handleHelper, PLUS_TEXT, readUnderstood, type HelperDeps } from './helper';
 import { SUPPORT_TEXT } from './safety';
 
 const LETTER = 'Brackenford Borough Council\nPlease confirm that you still live alone.\nPlease reply by 21 November 2026.\nWe may remove the discount from your account.';
@@ -10,6 +10,7 @@ const deps = (over: Partial<HelperDeps> = {}): HelperDeps => ({
   on: 'true',
   origins: ['capacitor://localhost'],
   verifyUser: async (t) => (t === 'good' ? 'u1' : undefined),
+  hasPlus: async (uid) => uid === 'u1',
   model: vi.fn(async () => ({ text: 'Dear Sir or Madam! I still live alone.', refused: false })),
   ...over,
 });
@@ -32,6 +33,14 @@ describe('helper server', () => {
     expect((await handleHelper(post({ job: 'draft', text: LETTER }), deps({ on: undefined }))).status).toBe(503);
     expect((await handleHelper(post({ job: 'draft', text: LETTER }, 'bad'), deps())).status).toBe(401);
     expect((await handleHelper(post({ job: 'nonsense', text: LETTER }), deps())).status).toBe(400);
+  });
+
+  it('needs Dealt With Plus, and never calls the model without it', async () => {
+    const d = deps({ hasPlus: async () => false });
+    const r = await handleHelper(post({ job: 'draft', text: LETTER }), d);
+    expect(r.status).toBe(402);
+    expect(await r.json()).toEqual({ text: PLUS_TEXT, plus: true });
+    expect(d.model).not.toHaveBeenCalled();
   });
 
   it('meets distress in what the person wrote with the support line, and never calls the model', async () => {

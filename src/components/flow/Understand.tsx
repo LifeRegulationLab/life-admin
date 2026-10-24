@@ -10,6 +10,7 @@ import { useStore } from '../../lib/store/StoreProvider';
 import { Thumb } from '../Capture';
 import { Card, Choice, fromLocalInput, Text, toDateInput } from '../ui';
 import { clock } from '../../lib/time';
+import { PlusNote } from '../PlusNote';
 import { ReadAloud, say, useEasy } from '../voice';
 
 const NEEDS: { code: Needs; text: string }[] = [
@@ -23,7 +24,7 @@ const NEEDS: { code: Needs; text: string }[] = [
  * Every fact shows the words it came from. The helper can fill it in; it works without it too.
  */
 export function Understand({ item, onNext, onDone }: { item: Item; onNext: () => void; onDone: () => void }) {
-  const { saveItem, data, user } = useStore();
+  const { saveItem, data, user, plus } = useStore();
   const settings = data.settings;
   const easy = useEasy();
   const facts = readFacts(item.text, new Date(item.createdAt));
@@ -37,7 +38,7 @@ export function Understand({ item, onNext, onDone }: { item: Item; onNext: () =>
   const [showWords, setShowWords] = useState(!u);
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState('');
-  const canHelp = settings.helperOn && helperAvailable() && Boolean(user) && item.text.trim().length > 20;
+  const canHelp = settings.helperOn && helperAvailable() && Boolean(user) && plus && item.text.trim().length > 20;
 
   const keep = async (next: Partial<Understanding>, extra: Partial<Item> = {}) => {
     const value: Understanding = {
@@ -140,6 +141,7 @@ export function Understand({ item, onNext, onDone }: { item: Item; onNext: () =>
           {busy || (easy ? 'Explain it to me' : 'Explain it')}
         </button>
       ) : null}
+      {!u?.plain && item.text.trim().length > 20 ? <PlusNote text="With Dealt With Plus, the helper can explain it in plain words and answer questions about it." /> : null}
       {note ? <p className="warnbox">{note}</p> : null}
 
       <Card className="flex flex-col gap-4">
