@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { INCOMING_TEXT_MAX, hasIncoming, incomingQuery, readIncoming, sourceName } from '../lib/logic/incoming';
+import { INCOMING_TEXT_MAX, hasIncoming, incomingHash, readIncoming, sourceName } from '../lib/logic/incoming';
 
 describe('a link from another app', () => {
+  it('reads the words after # first, so they never reach the server', () => {
+    const incoming = readIncoming('?text=old', '#kind=call&title=Ring%20the%20surgery&from=regulate');
+    expect(incoming).toEqual({ kind: 'call', title: 'Ring the surgery', text: '', source: 'regulate' });
+  });
+
   it('starts a new thing with the words filled in', () => {
     const incoming = readIncoming('?kind=letter&title=Write%20to%20the%20clinic&text=Ask%20for%20the%20results%20in%20writing.&from=regulate');
     expect(incoming).toEqual({ kind: 'letter', title: 'Write to the clinic', text: 'Ask for the results in writing.', source: 'regulate' });
@@ -22,8 +27,9 @@ describe('a link from another app', () => {
 
   it('carries the words on to the next screen without the kind', () => {
     const incoming = readIncoming('?kind=call&title=Ring%20the%20surgery&from=regulate');
-    expect(readIncoming(incomingQuery(incoming))).toEqual({ title: 'Ring the surgery', text: '', source: 'regulate' });
+    expect(incomingHash(incoming).startsWith('#')).toBe(true);
+    expect(readIncoming('', incomingHash(incoming))).toEqual({ title: 'Ring the surgery', text: '', source: 'regulate' });
     expect(hasIncoming(readIncoming(''))).toBe(false);
-    expect(incomingQuery(readIncoming(''))).toBe('');
+    expect(incomingHash(readIncoming(''))).toBe('');
   });
 });

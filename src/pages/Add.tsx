@@ -8,7 +8,7 @@ import { Card, Page, Text } from '../components/ui';
 import { ReadAloud, say, useEasy } from '../components/voice';
 import { KIND_INFO } from '../lib/content/kinds';
 import { readFacts } from '../lib/logic/facts';
-import { hasIncoming, incomingQuery, readIncoming, sourceName, type Incoming } from '../lib/logic/incoming';
+import { hasIncoming, incomingHash, readIncoming, sourceName, type Incoming } from '../lib/logic/incoming';
 import { newItem } from '../lib/logic/items';
 import { KINDS, type Kind, type PageLine } from '../lib/model/types';
 import { useStore } from '../lib/store/StoreProvider';
@@ -27,9 +27,9 @@ function FromApp({ incoming }: { incoming: Incoming }) {
 /** First choose what kind of thing it is. A link may say the kind, or bring words to carry on. */
 export function Add() {
   const easy = useEasy();
-  const { search } = useLocation();
-  const incoming = readIncoming(search);
-  const carry = incomingQuery(incoming);
+  const { search, hash } = useLocation();
+  const incoming = readIncoming(search, hash);
+  const carry = incomingHash(incoming);
   if (incoming.kind) return <Navigate to={`/add/${incoming.kind}${carry}`} replace />;
   return (
     <Page title={easy ? 'What is it?' : 'Add something'}>
@@ -60,8 +60,8 @@ export function AddKind() {
   const { saveItem } = useStore();
   const navigate = useNavigate();
   const easy = useEasy();
-  const { search } = useLocation();
-  const [incoming] = useState(() => readIncoming(search));
+  const { search, hash } = useLocation();
+  const [incoming] = useState(() => readIncoming(search, hash));
   const [text, setText] = useState(incoming.text);
   const [pageIds, setPageIds] = useState<string[]>([]);
   const [lines, setLines] = useState<PageLine[]>([]);
