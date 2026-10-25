@@ -14,7 +14,7 @@ export function Page({ title, back, children, actions }: { title: string; back?:
         </Link>
       ) : null}
       <div className="mb-4 flex items-start justify-between gap-3 pr-20">
-        <h1 className="text-2xl font-semibold">{title}</h1>
+        <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
         {actions}
       </div>
       <div className="flex flex-col gap-4">{children}</div>

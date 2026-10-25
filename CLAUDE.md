@@ -11,4 +11,4 @@ Read `README.md` first. Stack: Vite 6, React 19, TypeScript strict, React Router
 - The helper and read aloud are server functions in `functions/`. Keys stay there; a test checks the built app never carries them. The helper checks what the person types with `src/lib/helper/safety.ts` before any model is called (copy kept in `functions/src/safety.ts`; `npm --prefix functions run copy-safety`).
 - Read aloud uses the recorded Alex Bennett voice with a calm, low direction. The phone's own voice is only used if the person switches it on.
 - Never decompile other apps. Rival research uses public material only.
-- Brand: ink #0F1420, off-white #F4F1EA, grey #8A93A6, one amber accent #F2B544, Inter. The app name lives in `src/lib/brand.ts`.
+- Brand: the Life Regulation Lab teal shared with Pace, Regulate and Mull (pace `docs/DESIGN.md`), as tokens in `src/index.css`; Inter. The app name lives in `src/lib/brand.ts`.
