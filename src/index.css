@@ -219,3 +219,21 @@ html[data-spacing='wide'] body {
 html[data-spacing='wide'] .card {
   @apply p-5;
 }
+
+/* Moss: movement only when the phone allows it and the person has not switched it off. */
+@media (prefers-reduced-motion: no-preference) {
+  .moss-moves .moss-body { transform-box: view-box; transform-origin: 122px 200px; animation: moss-breathe 4s ease-in-out infinite; }
+  .moss-moves .moss-eyes { transform-box: view-box; transform-origin: 122px 96px; animation: moss-blink 5s infinite; }
+  .moss-moves.moss-ready .moss-wave { transform-box: view-box; transform-origin: 200px 130px; animation: moss-wave 2.4s ease-in-out infinite; }
+  .moss-moves.moss-listening .moss-dot { animation: moss-glow 2s ease-in-out infinite; }
+  .moss-moves.moss-thinking .moss-dot { animation: moss-glow 1.2s ease-in-out infinite; }
+  .moss-moves.moss-thinking .moss-dot1 { animation-delay: 0.15s; }
+  .moss-moves.moss-thinking .moss-dot2 { animation-delay: 0.3s; }
+  .moss-moves.moss-thinking .moss-dot3 { animation-delay: 0.45s; }
+  .moss-moves.moss-speaking .moss-mouth { transform-box: view-box; transform-origin: 122px 127px; animation: moss-talk 0.5s ease-in-out infinite alternate; }
+}
+@keyframes moss-breathe { 50% { transform: scale(1.015, 0.99); } }
+@keyframes moss-blink { 0%, 94%, 100% { transform: scaleY(1); } 97% { transform: scaleY(0.1); } }
+@keyframes moss-wave { 50% { transform: rotate(-12deg); } }
+@keyframes moss-glow { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+@keyframes moss-talk { from { transform: scaleY(0.35); } to { transform: scaleY(1); } }

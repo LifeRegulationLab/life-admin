@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Moss } from '../Moss';
 import { CALL_READY_TITLE, STEP_PICTURE, callScript, replyDraft } from '../../lib/content/steps';
 import { callScriptFor, draftReply, helperAvailable } from '../../lib/helper/client';
 import { toIcs } from '../../lib/logic/calendar';
@@ -160,9 +161,12 @@ export function StepScreen({ item, step, index, onDone }: { item: Item; step: St
           {canHelp ? (
             <>
               <Text label={step.type === 'call' ? 'What do you need from the call?' : 'What do you want to say? A few words is enough.'} value={helperNote} onChange={setHelperNote} />
-              <button type="button" className="btn btn-accent self-start" disabled={Boolean(busy)} onClick={() => void helperDraft()}>
-                {busy || (step.type === 'call' ? 'Write a script for me' : 'Draft it for me')}
-              </button>
+              <div className="flex items-center gap-3">
+                <Moss mood={busy ? 'thinking' : 'ready'} size={44} />
+                <button type="button" className="btn btn-accent self-start" disabled={Boolean(busy)} onClick={() => void helperDraft()}>
+                  {busy || (step.type === 'call' ? 'Write a script for me' : 'Draft it for me')}
+                </button>
+              </div>
             </>
           ) : (
             <PlusNote text={step.type === 'call' ? 'With Dealt With Plus, the helper can write a script for the call.' : 'With Dealt With Plus, the helper can draft the reply for you.'} />

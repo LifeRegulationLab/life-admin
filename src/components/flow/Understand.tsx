@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Moss } from '../Moss';
 import { ScamWarning } from '../ScamWarning';
 import { makeStep } from '../../lib/content/steps';
 import { askAbout, explain, helperAvailable, toUnderstanding } from '../../lib/helper/client';
@@ -175,9 +176,12 @@ export function Understand({ item, onNext, onDone }: { item: Item; onNext: () =>
       ) : null}
 
       {canHelp && !u?.plain ? (
-        <button type="button" className="btn btn-accent" disabled={Boolean(busy)} onClick={() => void runHelper()}>
-          {busy || (easy ? 'Explain it to me' : 'Explain it')}
-        </button>
+        <div className="flex items-center gap-3">
+          <Moss mood={busy ? 'thinking' : 'ready'} size={44} />
+          <button type="button" className="btn btn-accent" disabled={Boolean(busy)} onClick={() => void runHelper()}>
+            {busy || (easy ? 'Explain it to me' : 'Explain it')}
+          </button>
+        </div>
       ) : null}
       {!u?.plain && item.text.trim().length > 20 ? <PlusNote text="With Dealt With Plus, the helper can explain it in plain words and answer questions about it." /> : null}
       {note ? <p className="warnbox">{note}</p> : null}
