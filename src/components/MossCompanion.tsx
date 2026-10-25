@@ -4,7 +4,14 @@ import { Moss, useMoss } from './Moss';
 import { moss } from '../lib/moss/link';
 
 /** One plain thing Moss can open from where it is: a page of this app, nothing new. */
-export type MossAction = { label: string; detail: string; to?: string; run?: () => void };
+export type MossAction = { label: string; detail: string; to?: string; href?: string; run?: () => void };
+
+/** Opens the chat in Mull, where Moss talks. Mull's own link, so nothing about this app goes with it. */
+export const MOSS_TALK: MossAction = {
+  label: 'Talk to Moss',
+  detail: 'Opens the chat in Mull, if Mull is on this device',
+  href: 'coach://talk',
+};
 
 const ACTION = 'moss-action';
 const QUIET = 'btn';
@@ -29,7 +36,12 @@ function MossSheet({ onClose, actions, settingsTo }: { onClose: () => void; acti
         <ul className="flex w-full flex-col gap-2">
           {actions.map((a) => (
             <li key={a.label}>
-              {a.to !== undefined ? (
+              {a.href !== undefined ? (
+                <a href={a.href} target="_blank" rel="noopener" className={ACTION} onClick={onClose}>
+                  <span className="font-semibold">{a === MOSS_TALK ? `Talk to ${settings.name}` : a.label}</span>
+                  <span className="muted text-sm">{a.detail}</span>
+                </a>
+              ) : a.to !== undefined ? (
                 <Link to={a.to} className={ACTION} onClick={() => { onClose(); a.run?.(); }}>
                   <span className="font-semibold">{a.label}</span>
                   <span className="muted text-sm">{a.detail}</span>
