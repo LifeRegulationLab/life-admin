@@ -1,4 +1,6 @@
 import { Link } from 'react-router';
+import { MossHome } from '../components/MossCompanion';
+import { MOSS_ACTIONS, MOSS_SETTINGS } from '../lib/moss/actions';
 import { itemName, ItemRow } from '../components/ItemRow';
 import { Picture } from '../components/Picture';
 import { Card, Empty, Page } from '../components/ui';
@@ -34,6 +36,7 @@ export function Today() {
   return (
     <Page title="Today">
       <ReadAloud text={summary} />
+      <MossHome actions={MOSS_ACTIONS} settingsTo={MOSS_SETTINGS} />
       <div className="grid grid-cols-2 gap-3">
         <Link to="/add" className="btn btn-primary min-h-16 flex-col">
           <Picture name="letter" />

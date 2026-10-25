@@ -1,7 +1,9 @@
-import { Link, NavLink, Outlet } from 'react-router';
+import { Link, NavLink, Outlet, useLocation } from 'react-router';
 import { firebaseConfigured } from '../lib/firebase/app';
 import { useStore } from '../lib/store/StoreProvider';
 import { TabIcon } from './TabIcon';
+import { MossButton } from './MossCompanion';
+import { MOSS_ACTIONS, MOSS_SETTINGS } from '../lib/moss/actions';
 import { UndoBar } from './UndoBar';
 
 const TABS = [
@@ -15,8 +17,9 @@ const TABS = [
 /** Bottom tabs, Help on every screen, and a line asking for an account while someone looks around. */
 export function Layout() {
   const { user } = useStore();
+  const { pathname } = useLocation();
   return (
-    <div className="min-h-dvh">
+    <div className="moss-lift-tabs min-h-dvh">
       {!user && firebaseConfigured() && import.meta.env['VITE_SHOWCASE'] !== 'true' ? (
         <div className="bg-[var(--panel)] px-4 py-2 pr-24 text-sm" style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}>
           You are looking around.{' '}
@@ -30,6 +33,7 @@ export function Layout() {
         Help
       </Link>
       <Outlet />
+      {pathname !== '/' && <MossButton actions={MOSS_ACTIONS} settingsTo={MOSS_SETTINGS} />}
       <UndoBar />
       <nav
         aria-label="Main"

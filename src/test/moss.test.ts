@@ -44,7 +44,7 @@ describe('Moss', () => {
     const m = new Moss(store, s.send);
     expect(m.getSettings()).toEqual(DEFAULT_MOSS);
     await m.update({ motion: false });
-    expect(new Moss(store, s.send).getSettings()).toEqual({ name: 'Moss', motion: false });
+    expect(new Moss(store, s.send).getSettings()).toEqual({ name: 'Moss', motion: false, show: true });
     expect(s.calls).toHaveLength(0);
   });
 
@@ -69,7 +69,7 @@ describe('Moss', () => {
     await m.confirmCode('me@example.com', '123 456');
     expect(JSON.parse(String(s.calls[0]?.init.body))).toMatchObject({ token: '123456', type: 'email' });
     expect(m.getLink()?.email).toBe('me@example.com');
-    expect(m.getSettings()).toEqual({ name: 'Fern', motion: false });
+    expect(m.getSettings()).toEqual({ name: 'Fern', motion: false, show: true });
     expect((s.calls[1]?.init.headers as Record<string, string>)['Authorization']).toBe('Bearer a1');
   });
 
@@ -106,5 +106,19 @@ describe('Moss', () => {
     expect(m.getLink()).toBeUndefined();
     expect(s.calls.at(-1)?.url).toMatch(/logout\?scope=local$/);
     expect(new Moss(store, s.send).getLink()).toBeUndefined();
+  });
+
+  it('keeps Show Moss on this device: never sent, and kept when the shared settings arrive', async () => {
+    const s = server([
+      (c) => (c.url.includes('/verify') ? json(session) : undefined),
+      (c) => (c.url.includes('moss_profiles?select') ? json([{ name: 'Fern', motion: true }]) : undefined),
+    ]);
+    const m = new Moss(memoryStore(), s.send, () => 1_000);
+    await m.update({ show: false });
+    expect(s.calls).toHaveLength(0);
+    await m.confirmCode('me@example.com', '123456');
+    expect(m.getSettings()).toEqual({ name: 'Fern', motion: true, show: false });
+    await m.update({ name: 'Fern' });
+    expect(JSON.parse(String(s.calls.at(-1)?.init.body))).not.toHaveProperty('show');
   });
 });
