@@ -30,7 +30,7 @@ export function MossCard() {
         <Moss size={64} />
         <div>
           <h2 className="font-semibold">{settings.name}</h2>
-          <p className="muted text-sm">The face of the helper, shared with the other Life Regulation Lab apps. It shows what the app is doing, nothing more.</p>
+          <p className="muted text-sm">Your companion across the Life Regulation Lab apps. It sits in the middle of Today and in the bottom corner of the other pages. Tap it for help finding your way.</p>
         </div>
       </div>
       <Text label="Its name" value={name} onChange={setName} />
@@ -38,9 +38,14 @@ export function MossCard() {
         Save the name
       </button>
       <label className="flex items-center gap-3">
-        <input type="checkbox" checked={settings.motion} onChange={(e) => void moss.update({ motion: e.target.checked })} />
-        <span>{settings.name} moves a little</span>
+        <input type="checkbox" checked={settings.show} onChange={(e) => void moss.update({ show: e.target.checked })} />
+        <span>Show {settings.name}</span>
       </label>
+      <label className="flex items-center gap-3">
+        <input type="checkbox" checked={settings.motion} onChange={(e) => void moss.update({ motion: e.target.checked })} />
+        <span>Let {settings.name} move</span>
+      </label>
+      <p className="muted text-sm">Show is for this device. {settings.name} also keeps still when your phone is set to reduce motion.</p>
 
       {!mossLinkAvailable() ? null : link ? (
         <>

@@ -10,12 +10,13 @@ import { STORAGE_PREFIX } from '../brand';
  * and the movement setting are read and written. What Moss remembers stays in Mull and Pace.
  */
 
-export type MossSettings = { name: string; motion: boolean };
+/** show is for this device only and never sent. */
+export type MossSettings = { name: string; motion: boolean; show: boolean };
 export type MossLink = { email: string; access: string; refresh: string; expiresAt: number };
 
 const SETTINGS_KEY = `${STORAGE_PREFIX}:moss`;
 const LINK_KEY = `${STORAGE_PREFIX}:moss-link`;
-export const DEFAULT_MOSS: MossSettings = { name: 'Moss', motion: true };
+export const DEFAULT_MOSS: MossSettings = { name: 'Moss', motion: true, show: true };
 
 /** The shared Moss server. These are public client values, the same as in Mull and Pace. */
 const SERVER = (import.meta.env['VITE_MOSS_URL'] as string | undefined) || 'https://xgeacgbeiivcbrgdfpbf.supabase.co';
@@ -155,7 +156,7 @@ export class Moss {
       const rows = (await r.json()) as Partial<MossSettings>[];
       const row = rows[0];
       if (!row) return;
-      this.keep({ name: cleanName(row.name ?? DEFAULT_MOSS.name), motion: row.motion ?? DEFAULT_MOSS.motion });
+      this.keep({ ...this.settings, name: cleanName(row.name ?? DEFAULT_MOSS.name), motion: row.motion ?? DEFAULT_MOSS.motion });
     } catch {
       // Offline: the settings on this device stand.
     }

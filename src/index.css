@@ -245,3 +245,60 @@ html[data-spacing='wide'] .card {
 @keyframes moss-wave { 50% { transform: rotate(-12deg); } }
 @keyframes moss-glow { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
 @keyframes moss-talk { from { transform: scaleY(0.35); } to { transform: scaleY(1); } }
+
+/* Moss's place: in the middle of home, a round button in the bottom corner, and its sheet. */
+.moss-home {
+  border-radius: 9999px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 4px;
+  background: transparent;
+  cursor: pointer;
+}
+.moss-fab {
+  position: fixed;
+  right: calc(16px + env(safe-area-inset-right));
+  /* Pages with tabs along the bottom set --moss-lift to the height of the tabs. */
+  bottom: calc(16px + var(--moss-lift, 0px) + env(safe-area-inset-bottom));
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 9999px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  box-shadow: 0 2px 10px rgb(0 0 0 / 0.15);
+  cursor: pointer;
+}
+.moss-sheet {
+  width: min(32rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  margin: auto auto calc(1rem + env(safe-area-inset-bottom));
+  padding: 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: 1.25rem;
+  background: var(--panel);
+  color: inherit;
+  overflow-y: auto;
+}
+.moss-sheet::backdrop {
+  background: rgb(0 0 0 / 0.35);
+}
+.moss-action {
+  display: flex;
+  width: 100%;
+  min-height: 52px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+}
+.moss-lift-tabs {
+  --moss-lift: 64px;
+}
