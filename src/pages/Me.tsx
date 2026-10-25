@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Card, Choice, Field, Page, Text } from '../components/ui';
+import { MossCard } from '../components/MossCard';
 import { ReadAloud } from '../components/voice';
 import { APP_FULL_NAME, APP_NAME } from '../lib/brand';
 import { firebaseConfigured } from '../lib/firebase/app';
 import { deleteEverything, openBilling, signOut } from '../lib/firebase/account';
 import { helperAvailable } from '../lib/helper/client';
+import { moss } from '../lib/moss/link';
 import type { ReadAloud as ReadAloudSetting, Settings, TextSize } from '../lib/model/types';
 import { inShell, saveFile } from '../lib/shell';
 import { recordedVoiceAvailable } from '../lib/speech';
@@ -69,6 +71,7 @@ export function Me() {
 
   const clearDevice = async () => {
     device.clear([...COLLECTIONS, ...DOCS.map((d) => `doc:${d}`)]);
+    await moss.disconnect();
     await clear('photos');
     await clear('speech');
     setSure('');
@@ -79,6 +82,7 @@ export function Me() {
     if (!user) return;
     try {
       await deleteEverything(user);
+      await moss.disconnect();
       await clear('photos');
       await clear('speech');
       navigate('/');
@@ -204,6 +208,8 @@ export function Me() {
           </>
         ) : null}
       </Card>
+
+      <MossCard />
 
       <Card className="flex flex-col gap-3">
         <h2 className="font-semibold">Account</h2>
