@@ -5,9 +5,9 @@ const config: CapacitorConfig = {
   appId: 'com.liferegulationlab.dealtwith',
   appName: 'Dealt With',
   webDir: 'dist',
-  backgroundColor: '#f4f1ea',
+  backgroundColor: '#f2f7f5',
   plugins: {
-    LocalNotifications: { iconColor: '#f2b544' },
+    LocalNotifications: { iconColor: '#2a8c82' },
   },
 };
 

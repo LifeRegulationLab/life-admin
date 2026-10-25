@@ -3,38 +3,45 @@
 
 :root {
   color-scheme: light;
-  /* Life Regulation Lab: ink, off-white and one amber accent. */
-  --page: #f4f1ea;
-  --ink: #0f1420;
-  --muted: #565f72;
-  --line: #e2ddd0;
-  --line-strong: #cfc8b8;
-  --accent: #f2b544;
-  --accent-soft: #fbecc8;
-  --panel: #fffdf8;
-  --hero: #0f1420;
-  --on-hero: #f4f1ea;
+  /* Life Regulation Lab, shared with Pace, Regulate and Mull (pace docs/DESIGN.md): pale mint
+     paper and deep teal ink in light, the icon's deep teal in dark, one teal accent. */
+  --page: #f2f7f5;
+  --ink: #112f3a;
+  --muted: #557775;
+  --line: #d3e3de;
+  --line-strong: #bcd6d0;
+  --accent: #2a8c82;
+  /* The accent as a button fill, dark enough for white text. */
+  --accent-fill: #1f6f67;
+  --on-accent: #ffffff;
+  --accent-soft: #e1f1ec;
+  --panel: #ffffff;
+  --hero: #17313b;
+  --on-hero: #eaf6f2;
   --warn: #8a3b12;
-  --warn-soft: #fbe3d4;
+  --warn-soft: #f4ebd6;
   --done: #2f6b4f;
-  --shadow: 0 1px 2px rgb(15 20 32 / 0.05), 0 4px 16px rgb(15 20 32 / 0.06);
+  --shadow: 0 1px 2px rgb(17 47 58 / 0.05), 0 4px 16px rgb(17 47 58 / 0.06);
   font-family: 'Inter Variable', Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
-    --page: #0b0f18;
-    --ink: #f4f1ea;
-    --muted: #a3abbb;
-    --line: #222838;
-    --line-strong: #323a4e;
-    --accent-soft: #3a2f17;
-    --panel: #131927;
-    --hero: #1a2131;
-    --warn: #f3b08a;
-    --warn-soft: #3a2116;
-    --done: #7fc4a0;
+    --page: #0d2730;
+    --ink: #e6f8f2;
+    --muted: #9bbdb6;
+    --line: #285260;
+    --line-strong: #3a6672;
+    --accent: #95e8cc;
+    --accent-fill: #95e8cc;
+    --on-accent: #0d2730;
+    --accent-soft: #1b4651;
+    --panel: #153744;
+    --hero: #1b4651;
+    --warn: #f3d9a0;
+    --warn-soft: #4a4430;
+    --done: #9be6cc;
     --shadow: 0 1px 2px rgb(0 0 0 / 0.3);
   }
 }
@@ -52,6 +59,7 @@ body {
   color: var(--ink);
   line-height: 1.55;
   -webkit-tap-highlight-color: transparent;
+  accent-color: var(--accent-fill);
 }
 
 h1,
@@ -87,9 +95,9 @@ h3 {
   color: var(--page);
 }
 .btn-accent {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #0f1420;
+  background: var(--accent-fill);
+  border-color: var(--accent-fill);
+  color: var(--on-accent);
 }
 .btn-warn {
   border-color: var(--warn);
@@ -141,11 +149,11 @@ textarea.field {
 }
 
 .tab {
-  @apply flex min-h-14 flex-1 flex-col items-center justify-center text-xs;
+  @apply flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 pt-1.5 pb-1 text-[0.7rem];
   color: var(--muted);
 }
 .tab[aria-current='page'] {
-  color: var(--ink);
+  color: var(--accent-fill);
   font-weight: 600;
 }
 
@@ -193,9 +201,9 @@ html[data-contrast='on'] {
   --panel: #ffffff;
   --ink: #000000;
   --muted: #1f2533;
-  --line: #0f1420;
+  --line: #112f3a;
   --line-strong: #000000;
-  --accent-soft: #ffe2a3;
+  --accent-soft: #cdede3;
   --shadow: none;
 }
 @media (prefers-color-scheme: dark) {
@@ -204,9 +212,9 @@ html[data-contrast='on'] {
     --panel: #000000;
     --ink: #ffffff;
     --muted: #e6e9f0;
-    --line: #f4f1ea;
+    --line: #e6f8f2;
     --line-strong: #ffffff;
-    --accent-soft: #4a3a10;
+    --accent-soft: #1b4651;
   }
 }
 

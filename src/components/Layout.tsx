@@ -1,14 +1,15 @@
 import { Link, NavLink, Outlet } from 'react-router';
 import { firebaseConfigured } from '../lib/firebase/app';
 import { useStore } from '../lib/store/StoreProvider';
+import { TabIcon } from './TabIcon';
 import { UndoBar } from './UndoBar';
 
 const TABS = [
-  { to: '/', label: 'Today', end: true },
-  { to: '/add', label: 'Add' },
-  { to: '/renewals', label: 'Renewals' },
-  { to: '/all', label: 'Everything' },
-  { to: '/me', label: 'Me' },
+  { to: '/', icon: 'today', label: 'Today', end: true },
+  { to: '/add', icon: 'add', label: 'Add' },
+  { to: '/renewals', icon: 'renewals', label: 'Renewals' },
+  { to: '/all', icon: 'everything', label: 'Everything' },
+  { to: '/me', icon: 'me', label: 'Me' },
 ] as const;
 
 /** Bottom tabs, Help on every screen, and a line asking for an account while someone looks around. */
@@ -16,7 +17,7 @@ export function Layout() {
   const { user } = useStore();
   return (
     <div className="min-h-dvh">
-      {!user && firebaseConfigured() ? (
+      {!user && firebaseConfigured() && import.meta.env['VITE_SHOWCASE'] !== 'true' ? (
         <div className="bg-[var(--panel)] px-4 py-2 pr-24 text-sm" style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}>
           You are looking around.{' '}
           <Link to="/signin" className="underline">
@@ -38,6 +39,7 @@ export function Layout() {
         <div className="mx-auto flex max-w-2xl">
           {TABS.map((t) => (
             <NavLink key={t.to} to={t.to} end={'end' in t} className="tab">
+              <TabIcon name={t.icon} />
               {t.label}
             </NavLink>
           ))}
