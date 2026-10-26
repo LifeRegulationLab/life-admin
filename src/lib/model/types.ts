@@ -56,6 +56,14 @@ export interface Step {
   minutes?: number;
   /** For 'send': how it was sent. */
   how?: 'post' | 'email' | 'online' | 'in person' | 'phone';
+  /** Your own things to have ready before this step, besides the ones the app finds in the letter. */
+  ready?: string[];
+  /** The things to have ready that are already ticked. */
+  readyTicked?: string[];
+  /** Minutes to get ready, counted apart from the step itself. */
+  readyMinutes?: number;
+  /** Set when this step was sent to Pace through Moss: the handover's id, to show if Pace added it. */
+  paceHandover?: string;
 }
 
 export const RECORD_KINDS = ['note', 'sent', 'proof', 'call', 'paid', 'received', 'booked', 'done'] as const;
@@ -76,9 +84,18 @@ export interface Waiting {
   since: number;
   /** What I am waiting for. */
   forWhat: string;
-  /** When to chase if nothing has come. */
+  /** When to chase if nothing has come: the follow-up date. */
   chaseAt: number;
+  /** Who owes the next action. Them unless changed. */
+  owes?: Owes;
+  /** For 'someone': their name. */
+  who?: string;
+  /** What they said they would do, and by when, in their words. */
+  agreed?: string;
 }
+
+export const OWES = ['them', 'me', 'someone'] as const;
+export type Owes = (typeof OWES)[number];
 
 /** One line read from a photo of a page, with where it sits, so the app can show that line itself. */
 export interface PageLine {
@@ -164,6 +181,8 @@ export interface Settings {
   wideSpacing: boolean;
   /** On a low day, Today shows only the one next thing. */
   justNext: boolean;
+  /** Show "weeks in a row" on Today and Looking back. */
+  streaks: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -180,6 +199,7 @@ export const DEFAULT_SETTINGS: Settings = {
   contrast: false,
   wideSpacing: false,
   justNext: false,
+  streaks: true,
 };
 
 /** One step handed to someone else to help with. They see only this, never the rest. */

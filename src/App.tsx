@@ -3,6 +3,8 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 import { Layout } from './components/Layout';
 import { StoreProvider, useStore } from './lib/store/StoreProvider';
 import { Add, AddKind } from './pages/Add';
+import { StuckPage, WhereWasIPage } from './pages/Aids';
+import { LookingBack } from './pages/LookingBack';
 import { Compare } from './pages/Compare';
 import { Everything } from './pages/Everything';
 import { Help } from './pages/Help';
@@ -46,6 +48,9 @@ export function App() {
             <Route path="renewals" element={<Renewals />} />
             <Route path="renewals/:id" element={<RenewalEdit />} />
             <Route path="all" element={<Everything />} />
+            <Route path="looking-back" element={<LookingBack />} />
+            <Route path="where" element={<WhereWasIPage />} />
+            <Route path="stuck" element={<StuckPage />} />
             <Route path="help" element={<Help />} />
             <Route path="me" element={<Me />} />
             <Route path="*" element={<Navigate to="/" replace />} />

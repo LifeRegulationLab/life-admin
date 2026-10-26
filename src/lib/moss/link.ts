@@ -10,13 +10,33 @@ import { STORAGE_PREFIX } from '../brand';
  * and the movement setting are read and written. What Moss remembers stays in Mull and Pace.
  */
 
-/** show is for this device only and never sent. */
-export type MossSettings = { name: string; motion: boolean; show: boolean };
+/**
+ * show is for this device only and never sent. The rest are the shared ways Moss works, the same
+ * in every connected app: they go up only when Moss is connected here.
+ */
+export type MossSettings = {
+  name: string;
+  motion: boolean;
+  show: boolean;
+  oneQuestion: boolean;
+  shortReplies: boolean;
+  voice: boolean;
+  /** Moss can keep notes the person chooses. Off stops new notes everywhere; old ones stay until deleted. */
+  remember: boolean;
+};
+
+/** A task going to Pace, exactly as the person saw it on "this is what will move". */
+export type TaskForPace = { title: string; minutes?: number; firstStep?: string; ready?: string[]; readyMinutes?: number };
+
+/** A call script Mull prepared and the person chose to keep in Dealt With. */
+export type ScriptFromMull = { id: string; title: string; body: string; fromApp: string };
+
+export type HandoverStatus = 'pending' | 'added' | 'declined';
 export type MossLink = { email: string; access: string; refresh: string; expiresAt: number };
 
 const SETTINGS_KEY = `${STORAGE_PREFIX}:moss`;
 const LINK_KEY = `${STORAGE_PREFIX}:moss-link`;
-export const DEFAULT_MOSS: MossSettings = { name: 'Moss', motion: true, show: true };
+export const DEFAULT_MOSS: MossSettings = { name: 'Moss', motion: true, show: true, oneQuestion: true, shortReplies: true, voice: false, remember: true };
 
 /** The shared Moss server. These are public client values, the same as in Mull and Pace. */
 const SERVER = (import.meta.env['VITE_MOSS_URL'] as string | undefined) || 'https://xgeacgbeiivcbrgdfpbf.supabase.co';
@@ -148,15 +168,23 @@ export class Moss {
     });
   }
 
-  /** Reads the shared name and movement setting. Quietly does nothing when not connected or offline. */
+  /** Reads the shared Moss settings. Quietly does nothing when not connected or offline. */
   async pull(): Promise<void> {
     try {
-      const r = await this.rest('moss_profiles?select=name,motion', { method: 'GET' });
+      const r = await this.rest('moss_profiles?select=*', { method: 'GET' });
       if (!r?.ok) return;
-      const rows = (await r.json()) as Partial<MossSettings>[];
+      const rows = (await r.json()) as { name?: string; motion?: boolean; one_question?: boolean; short_replies?: boolean; voice?: boolean; remember?: boolean }[];
       const row = rows[0];
       if (!row) return;
-      this.keep({ ...this.settings, name: cleanName(row.name ?? DEFAULT_MOSS.name), motion: row.motion ?? DEFAULT_MOSS.motion });
+      this.keep({
+        ...this.settings,
+        name: cleanName(row.name ?? DEFAULT_MOSS.name),
+        motion: row.motion ?? DEFAULT_MOSS.motion,
+        oneQuestion: row.one_question ?? this.settings.oneQuestion,
+        shortReplies: row.short_replies ?? this.settings.shortReplies,
+        voice: row.voice ?? this.settings.voice,
+        remember: row.remember ?? this.settings.remember,
+      });
     } catch {
       // Offline: the settings on this device stand.
     }
@@ -167,15 +195,101 @@ export class Moss {
     const next = { ...this.settings, ...change };
     next.name = cleanName(next.name);
     this.keep(next);
+    if (!this.link) return;
+    const body: Record<string, unknown> = {
+      name: next.name,
+      motion: next.motion,
+      one_question: next.oneQuestion,
+      short_replies: next.shortReplies,
+      voice: next.voice,
+      remember: next.remember,
+      updated_at: new Date(this.now()).toISOString(),
+    };
     try {
-      await this.rest('moss_profiles?on_conflict=user_id', {
-        method: 'POST',
-        headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
-        body: JSON.stringify({ name: next.name, motion: next.motion, updated_at: new Date(this.now()).toISOString() }),
-      });
+      const r = await this.rest('moss_profiles?on_conflict=user_id', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(body) });
+      if (r && r.status === 400) {
+        // A server without the remember switch yet: send the rest.
+        delete body['remember'];
+        await this.rest('moss_profiles?on_conflict=user_id', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(body) });
+      }
     } catch {
       // Kept on this device; it goes up next time a setting changes.
     }
+  }
+
+  /** The notes Moss keeps, from every connected app, so the person can see and delete each one. */
+  async notes(): Promise<{ id: string; text: string; sourceApp: string }[]> {
+    try {
+      const r = await this.rest('moss_memory?select=id,text,source_app&order=updated_at.desc', { method: 'GET' });
+      if (!r?.ok) return [];
+      return ((await r.json()) as { id: string; text: string; source_app: string }[]).map((n) => ({ id: n.id, text: n.text, sourceApp: n.source_app }));
+    } catch {
+      return [];
+    }
+  }
+
+  async deleteNote(id: string): Promise<boolean> {
+    const r = await this.rest(`moss_memory?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => undefined);
+    return Boolean(r?.ok);
+  }
+
+  /** Forget everything: Moss's shared settings, notes and handovers, in every app. */
+  async forgetEverything(): Promise<boolean> {
+    const r = await this.rest('rpc/moss_forget_me', { method: 'POST', body: '{}' }).catch(() => undefined);
+    return Boolean(r?.ok);
+  }
+
+  /** Passes one task to Pace. It waits on the server until Pace has added it. Returns its id. */
+  async sendToPace(task: TaskForPace): Promise<string> {
+    const title = task.title.replace(/\s+/g, ' ').trim().slice(0, 120);
+    if (!title) throw new MossError('The task needs a name.');
+    const body: Record<string, unknown> = { from_app: 'dealt-with', to_app: 'pace', kind: 'task', title };
+    if (task.minutes) body['minutes'] = Math.min(480, Math.max(1, Math.round(task.minutes)));
+    if (task.firstStep?.trim()) body['first_step'] = task.firstStep.trim().slice(0, 120);
+    const ready = (task.ready ?? []).map((l) => l.trim().slice(0, 120)).filter(Boolean).slice(0, 10);
+    if (ready.length) body['ready'] = ready;
+    if (task.readyMinutes !== undefined) body['ready_minutes'] = Math.min(240, Math.max(0, Math.round(task.readyMinutes)));
+    let r: Response | undefined;
+    try {
+      r = await this.rest('moss_handovers', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(body) });
+    } catch {
+      throw new MossError('Moss could not be reached. Check the signal and try again.');
+    }
+    if (!r) throw new MossError('Connect Moss first, in Me.');
+    if (!r.ok) throw new MossError('It was not sent. Try again later.');
+    const rows = (await r.json()) as { id: string }[];
+    const id = rows[0]?.id;
+    if (!id) throw new MossError('It was not sent. Try again later.');
+    return id;
+  }
+
+  /** Where each handover has got to: still waiting for Pace, added, or declined there. */
+  async handoverStatus(ids: readonly string[]): Promise<Record<string, HandoverStatus>> {
+    if (!ids.length) return {};
+    try {
+      const r = await this.rest(`moss_handovers?select=id,status&id=in.(${ids.map(encodeURIComponent).join(',')})`, { method: 'GET' });
+      if (!r?.ok) return {};
+      const rows = (await r.json()) as { id: string; status: HandoverStatus }[];
+      return Object.fromEntries(rows.map((x) => [x.id, x.status]));
+    } catch {
+      return {};
+    }
+  }
+
+  /** Call scripts waiting for Dealt With, sent from Mull. */
+  async scripts(): Promise<ScriptFromMull[]> {
+    try {
+      const r = await this.rest('moss_handovers?to_app=eq.dealt-with&status=eq.pending&kind=eq.script&select=id,title,body,from_app&order=created_at', { method: 'GET' });
+      if (!r?.ok) return [];
+      return ((await r.json()) as { id: string; title: string; body: string | null; from_app: string }[]).map((x) => ({ id: x.id, title: x.title, body: x.body ?? '', fromApp: x.from_app }));
+    } catch {
+      return [];
+    }
+  }
+
+  /** Tells the sending app the script was saved here, or that the person said no. Once only. */
+  async settle(id: string, outcome: 'added' | 'declined'): Promise<void> {
+    await this.rest('rpc/moss_settle_handover', { method: 'POST', body: JSON.stringify({ handover: id, outcome }) }).catch(() => undefined);
   }
 
   /** Disconnects Moss on this device only. The Mull or Pace account and its Moss are not touched. */

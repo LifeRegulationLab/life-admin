@@ -1,5 +1,5 @@
-import { stepsFor } from '../content/steps';
-import type { Item, Kind, RecordEntry, RecordKind, Renewal, Step } from '../model/types';
+import { makeStep, stepsFor } from '../content/steps';
+import type { Item, Kind, RecordEntry, RecordKind, Renewal, Step, Waiting } from '../model/types';
 import { newId } from '../store/backend';
 
 /**
@@ -80,9 +80,10 @@ export function pause(item: Item, note: string, now = Date.now()): Item {
 }
 
 /** Sent and now waiting for them. A chase date makes it come back into the list if nothing arrives. */
-export function startWaiting(item: Item, forWhat: string, chaseAt: number, now = Date.now()): Item {
+export function startWaiting(item: Item, forWhat: string, chaseAt: number, now = Date.now(), extra: Pick<Waiting, 'owes' | 'who' | 'agreed'> = {}): Item {
   const waitStep = item.steps.find((s) => s.type === 'wait' && !s.done);
-  let next: Item = { ...item, status: 'waiting', waiting: { since: now, forWhat: forWhat.trim() || 'a reply', chaseAt }, updatedAt: now };
+  const kept = Object.fromEntries(Object.entries(extra).filter(([, v]) => v !== undefined && v !== '')) as Partial<Waiting>;
+  let next: Item = { ...item, status: 'waiting', waiting: { since: now, forWhat: forWhat.trim() || 'a reply', chaseAt, ...kept }, updatedAt: now };
   if (waitStep) next = updateStep(next, waitStep.id, { note: forWhat }, now);
   return addRecord(next, 'note', `Waiting for ${forWhat.trim() || 'a reply'}. Chase on ${new Date(chaseAt).toLocaleDateString('en-GB')}.`, {}, now);
 }
@@ -196,4 +197,27 @@ export function link(a: Item, b: Item, on: boolean, now = Date.now()): [Item, It
     return { ...x, links: [...links], updatedAt: now };
   };
   return [set(a, b.id), set(b, a.id)];
+}
+
+/** Changes who owes the next step, what was agreed or the follow-up date, and notes it in the record. */
+export function keepMoving(item: Item, change: Partial<Pick<Waiting, 'owes' | 'who' | 'agreed' | 'chaseAt'>>, now = Date.now()): Item {
+  if (!item.waiting) return item;
+  const waiting: Waiting = { ...item.waiting, ...change };
+  const said = [
+    change.owes !== undefined && change.owes !== item.waiting.owes ? `Next step now with ${change.owes === 'me' ? 'me' : change.owes === 'someone' ? waiting.who || 'someone else' : 'them'}` : '',
+    change.agreed !== undefined && change.agreed.trim() && change.agreed !== item.waiting.agreed ? `They agreed: ${change.agreed.trim()}` : '',
+    change.chaseAt !== undefined && change.chaseAt !== item.waiting.chaseAt ? `Follow up on ${new Date(change.chaseAt).toLocaleDateString('en-GB')}` : '',
+  ].filter(Boolean);
+  const next: Item = { ...item, waiting, updatedAt: now };
+  return said.length ? addRecord(next, 'note', `${said.join('. ')}.`, {}, now) : next;
+}
+
+/** Puts a new step just before the one on screen and opens it, for "too big" and "missing something". */
+export function stepBefore(item: Item, title: string, type: Step['type'] = 'custom', now = Date.now()): Item {
+  const at = currentStep(item);
+  const index = at ? item.steps.indexOf(at) : item.steps.length;
+  const step = makeStep({ type, title: title.trim(), help: 'A step you added. Do just this part.', easyHelp: 'Do just this part.' });
+  const steps = [...item.steps];
+  steps.splice(index, 0, step);
+  return { ...item, steps, at: index, status: item.status === 'new' ? 'working' : item.status, updatedAt: now };
 }

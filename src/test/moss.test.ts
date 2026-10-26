@@ -44,7 +44,7 @@ describe('Moss', () => {
     const m = new Moss(store, s.send);
     expect(m.getSettings()).toEqual(DEFAULT_MOSS);
     await m.update({ motion: false });
-    expect(new Moss(store, s.send).getSettings()).toEqual({ name: 'Moss', motion: false, show: true });
+    expect(new Moss(store, s.send).getSettings()).toEqual({ ...DEFAULT_MOSS, motion: false });
     expect(s.calls).toHaveLength(0);
   });
 
@@ -69,18 +69,18 @@ describe('Moss', () => {
     await m.confirmCode('me@example.com', '123 456');
     expect(JSON.parse(String(s.calls[0]?.init.body))).toMatchObject({ token: '123456', type: 'email' });
     expect(m.getLink()?.email).toBe('me@example.com');
-    expect(m.getSettings()).toEqual({ name: 'Fern', motion: false, show: true });
+    expect(m.getSettings()).toEqual({ ...DEFAULT_MOSS, name: 'Fern', motion: false });
     expect((s.calls[1]?.init.headers as Record<string, string>)['Authorization']).toBe('Bearer a1');
   });
 
-  it('sends only the name and movement when a setting changes', async () => {
+  it('sends only the shared ways Moss works, never Show, when a setting changes', async () => {
     const s = server([(c) => (c.url.includes('/verify') ? json(session) : undefined)]);
     const m = new Moss(memoryStore(), s.send, () => 1_000);
     await m.confirmCode('me@example.com', '123456');
     await m.update({ name: 'Fern' });
     const up = s.calls.at(-1);
     expect(up?.url).toMatch(/moss_profiles\?on_conflict=user_id$/);
-    expect(Object.keys(JSON.parse(String(up?.init.body))).sort()).toEqual(['motion', 'name', 'updated_at']);
+    expect(Object.keys(JSON.parse(String(up?.init.body))).sort()).toEqual(['motion', 'name', 'one_question', 'remember', 'short_replies', 'updated_at', 'voice']);
   });
 
   it('renews the sign-in when it runs out, and lets go when it was ended elsewhere', async () => {
@@ -117,8 +117,39 @@ describe('Moss', () => {
     await m.update({ show: false });
     expect(s.calls).toHaveLength(0);
     await m.confirmCode('me@example.com', '123456');
-    expect(m.getSettings()).toEqual({ name: 'Fern', motion: true, show: false });
+    expect(m.getSettings()).toEqual({ ...DEFAULT_MOSS, name: 'Fern', motion: true, show: false });
     await m.update({ name: 'Fern' });
     expect(JSON.parse(String(s.calls.at(-1)?.init.body))).not.toHaveProperty('show');
+  });
+});
+
+describe('Moss passing things on', () => {
+  async function connected(answers: ((c: Call) => Response | undefined)[]) {
+    const s = server([(c) => (c.url.includes('/auth/v1/verify') ? json(session) : undefined), ...answers]);
+    const m = new Moss(memoryStore(), s.send, () => 1_000);
+    await m.confirmCode('me@example.com', '123456');
+    return { m, s };
+  }
+
+  it('sends a task to Pace with only what was shown, and gets its id back', async () => {
+    const { m, s } = await connected([(c) => (c.url.endsWith('/rest/v1/moss_handovers') ? json([{ id: 'h1' }], 201) : undefined)]);
+    const id = await m.sendToPace({ title: '  Ring  the council ', minutes: 15, firstStep: 'Find the letter', ready: ['Reference 6001', ' '], readyMinutes: 5 });
+    expect(id).toBe('h1');
+    const sent = s.calls.find((c) => c.url.endsWith('/rest/v1/moss_handovers'));
+    expect(JSON.parse(String(sent?.init.body))).toEqual({ from_app: 'dealt-with', to_app: 'pace', kind: 'task', title: 'Ring the council', minutes: 15, first_step: 'Find the letter', ready: ['Reference 6001'], ready_minutes: 5 });
+  });
+
+  it('will not send anything when Moss is not connected', async () => {
+    const s = server([]);
+    await expect(new Moss(memoryStore(), s.send).sendToPace({ title: 'Ring them' })).rejects.toThrow('Connect Moss first');
+    expect(s.calls).toHaveLength(0);
+  });
+
+  it('reads call scripts from Mull and settles each once', async () => {
+    const { m, s } = await connected([(c) => (c.url.includes('to_app=eq.dealt-with') ? json([{ id: 's1', title: 'Electricity company', body: 'Hello...', from_app: 'mull' }]) : undefined)]);
+    expect(await m.scripts()).toEqual([{ id: 's1', title: 'Electricity company', body: 'Hello...', fromApp: 'mull' }]);
+    await m.settle('s1', 'added');
+    const settle = s.calls.find((c) => c.url.endsWith('/rest/v1/rpc/moss_settle_handover'));
+    expect(JSON.parse(String(settle?.init.body))).toEqual({ handover: 's1', outcome: 'added' });
   });
 });

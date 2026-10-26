@@ -177,6 +177,11 @@ export function Me() {
       <Card className="flex flex-col gap-3">
         <h2 className="font-semibold">Reminders and the helper</h2>
         <label className="flex items-center gap-3">
+          <input type="checkbox" checked={s.streaks} onChange={(e) => set({ streaks: e.target.checked })} />
+          <span>Show weeks in a row with something dealt with</span>
+        </label>
+        <p className="muted text-sm">Shown from two weeks. A quiet week with nothing to deal with keeps the count. A gap is never mentioned.</p>
+        <label className="flex items-center gap-3">
           <input type="checkbox" checked={s.reminders} onChange={(e) => set({ reminders: e.target.checked })} />
           <span>Remind me before a date, and when it is time to chase</span>
         </label>

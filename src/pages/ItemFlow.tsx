@@ -1,5 +1,8 @@
 import { useState } from 'react';
-import { Link, Navigate, useNavigate, useParams } from 'react-router';
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router';
+import { KeepMoving } from '../components/aids/KeepMoving';
+import { StuckPanel } from '../components/aids/Stuck';
+import { WhereWasICard } from '../components/aids/WhereWasI';
 import { useShares } from '../components/flow/ShareStep';
 import { StepScreen } from '../components/flow/StepScreen';
 import { StepsEditor } from '../components/flow/StepsEditor';
@@ -7,9 +10,10 @@ import { Understand } from '../components/flow/Understand';
 import { itemName } from '../components/ItemRow';
 import { Picture } from '../components/Picture';
 import { Stages } from '../components/Stages';
-import { Area, Card, fromLocalInput, Page, toDateInput } from '../components/ui';
+import { Area, Card, Page } from '../components/ui';
 import { ReadAloud, useEasy } from '../components/voice';
 import { removeShare } from '../lib/firebase/account';
+import { whereWasI } from '../lib/logic/aids';
 import { addRecord, currentStep, dueOf, markDone, pause, reopenStep, replyCame, whenWords } from '../lib/logic/items';
 import { CHASE_STEP, makeStep } from '../lib/content/steps';
 import type { Item } from '../lib/model/types';
@@ -18,7 +22,7 @@ import { savePhoto } from '../lib/store/photos';
 import { useStore } from '../lib/store/StoreProvider';
 import { clock, useNow } from '../lib/time';
 
-type View = { name: 'understand' } | { name: 'step'; index: number } | { name: 'steps' } | { name: 'pause' } | { name: 'done' } | { name: 'waiting' };
+type View = { name: 'understand' } | { name: 'step'; index: number } | { name: 'steps' } | { name: 'pause' } | { name: 'done' } | { name: 'waiting' } | { name: 'stuck' };
 
 function firstView(item: Item): View {
   if (item.status === 'done') return { name: 'done' };
@@ -44,12 +48,18 @@ function Flow({ item }: { item: Item }) {
   const easy = useEasy();
   const now = useNow();
   const shares = useShares();
-  const [view, setView] = useState<View>(() => firstView(item));
+  const [params] = useSearchParams();
+  const [view, setView] = useState<View>(() => {
+    const asked = params.get('view');
+    if (item.status !== 'done' && (asked === 'stuck' || asked === 'pause')) return { name: asked };
+    if (asked === 'understand') return { name: 'understand' };
+    return firstView(item);
+  });
   const [where, setWhere] = useState(item.pausedNote);
   const [came, setCame] = useState('');
-  const [chaseAt, setChaseAt] = useState(item.waiting?.chaseAt ?? now);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const due = dueOf(item);
+  const placeCard = whereWasI(item);
 
   const afterStep = async (next: Item) => {
     const doneStep = item.steps.find((s) => !s.done && next.steps.find((n) => n.id === s.id)?.done);
@@ -107,6 +117,11 @@ function Flow({ item }: { item: Item }) {
           <Link to={`/item/${item.id}/record`} className="chip">
             Record
           </Link>
+          {item.status !== 'waiting' ? (
+            <button type="button" className="chip" aria-pressed={view.name === 'stuck'} onClick={() => setView(view.name === 'stuck' ? firstView(item) : { name: 'stuck' })}>
+              Stuck?
+            </button>
+          ) : null}
         </div>
       ) : null}
     </div>
@@ -115,11 +130,16 @@ function Flow({ item }: { item: Item }) {
   return (
     <Page title={itemName(item)} back="/">
       {header}
-      {item.pausedNote && view.name === 'step' ? (
-        <Card>
-          <p className="muted text-sm">Last time you got to:</p>
-          <p>{item.pausedNote}</p>
-        </Card>
+      {view.name === 'step' && placeCard ? <WhereWasICard where={placeCard} /> : null}
+
+      {view.name === 'stuck' ? (
+        <StuckPanel
+          item={item}
+          onGo={(to) => {
+            setView(to === 'step' ? firstView({ ...item, status: item.status === 'new' ? 'working' : item.status }) : to === 'pause' ? { name: 'pause' } : { name: 'understand' });
+            window.scrollTo({ top: 0 });
+          }}
+        />
       ) : null}
 
       {view.name === 'understand' ? <Understand item={item} onNext={() => setView(firstView({ ...item, status: 'working', understanding: item.understanding ?? { plain: '', easy: '', needs: 'yes', ask: '', consequence: '', quotes: [], by: 'me' } }))} onDone={() => setView({ name: 'done' })} /> : null}
@@ -159,10 +179,10 @@ function Flow({ item }: { item: Item }) {
       {view.name === 'waiting' && item.waiting ? (
         <div className="flex flex-col gap-4">
           <Picture name="wait" size={easy ? 64 : 44} />
-          <ReadAloud text={`Waiting for ${item.waiting.forWhat}. Chase on ${fmtDate(item.waiting.chaseAt)}.`} />
+          <ReadAloud text={`Waiting for ${item.waiting.forWhat}. Follow up on ${fmtDate(item.waiting.chaseAt)}.`} />
           <Card className="flex flex-col gap-1">
             <p className="text-lg font-semibold">Waiting for {item.waiting.forWhat}</p>
-            <p className="muted">Since {fmtDate(item.waiting.since)}. Chase on {fmtDate(item.waiting.chaseAt)}.</p>
+            <p className="muted">Since {fmtDate(item.waiting.since)}. Follow up on {fmtDate(item.waiting.chaseAt)}.</p>
             <Stages item={item} />
           </Card>
           <Card className="flex flex-col gap-3">
@@ -183,15 +203,7 @@ function Flow({ item }: { item: Item }) {
           <button type="button" className="btn" onClick={() => void chaseNow()}>
             Nothing yet: chase them now
           </button>
-          <Card className="flex flex-col gap-2">
-            <label className="block">
-              <span className="label">Change the chase date</span>
-              <input className="field" type="date" value={toDateInput(chaseAt)} onChange={(e) => e.target.value && setChaseAt(fromLocalInput(`${e.target.value}T09:00`))} />
-            </label>
-            <button type="button" className="btn self-start" disabled={chaseAt === item.waiting.chaseAt} onClick={() => item.waiting && void saveItem({ ...item, waiting: { ...item.waiting, chaseAt }, updatedAt: clock() })}>
-              Save the date
-            </button>
-          </Card>
+<KeepMoving key={`${item.updatedAt}`} item={item} />
           <button type="button" className="btn" onClick={() => void saveItem(markDone(item, 'Finished without waiting any longer.')).then(() => { offerUndo('Marked as dealt with', item); setView({ name: 'done' }); })}>
             It is finished: mark it dealt with
           </button>
