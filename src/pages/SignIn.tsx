@@ -3,13 +3,14 @@ import { useNavigate } from 'react-router';
 import { Card, Text } from '../components/ui';
 import { APP_NAME } from '../lib/brand';
 import { firebaseConfigured } from '../lib/firebase/app';
+import { socialSignIn, type Social } from '../lib/firebase/social';
 import { finishLink, importIntoAccount, passwordSignIn, resetPassword, sendLink } from '../lib/firebase/account';
 import { COLLECTIONS, DOCS } from '../lib/store/backend';
 import { useStore } from '../lib/store/StoreProvider';
 
 /**
- * Make an account or sign in, with a password (works in the app on a home screen) or a link sent
- * by email. Then move anything already on this phone into the account.
+ * The first page: sign in or make an account with Apple, Google, a password or a link sent by
+ * email. Then the app opens, after moving anything already on this phone into the account.
  */
 export function SignIn() {
   const store = useStore();
@@ -18,7 +19,7 @@ export function SignIn() {
   const [state, setState] = useState<'ask' | 'sent' | 'need-email' | 'moving' | 'error'>('ask');
   const [error, setError] = useState('');
   const [password, setPassword] = useState('');
-  const [isNew, setIsNew] = useState(true);
+  const [isNew, setIsNew] = useState(false);
   const [byLink, setByLink] = useState(false);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState('');
@@ -37,6 +38,18 @@ export function SignIn() {
         setError('That link did not work. It may have been used already or be more than an hour old. Ask for a new one.');
       });
   }, []);
+
+  useEffect(() => {
+    if (store.user && !hasDevice) navigate('/', { replace: true });
+  }, [store.user, hasDevice, navigate]);
+
+  const social = async (which: Social) => {
+    setError('');
+    setBusy(true);
+    const e = await socialSignIn(which);
+    setBusy(false);
+    if (e) setError(e);
+  };
 
   const send = async () => {
     setError('');
@@ -86,9 +99,8 @@ export function SignIn() {
   }
 
   return (
-    <main className="mx-auto flex max-w-xl flex-col gap-4 px-5 py-10">
-      <h1 className="text-2xl font-semibold">Your {APP_NAME} account</h1>
-      <p className="muted text-sm">This account is for {APP_NAME} only. It is separate from any other Life Regulation Lab app.</p>
+    <main className="mx-auto flex min-h-dvh max-w-xl flex-col justify-center gap-4 px-5 py-10">
+      <h1 className="text-3xl font-semibold">{APP_NAME}</h1>
       {store.user ? (
         <Card className="flex flex-col gap-3">
           <p>Signed in as {store.user.email}.</p>
@@ -125,9 +137,16 @@ export function SignIn() {
       ) : (
         <Card className="flex flex-col gap-3">
           <h2 className="font-semibold">{isNew ? 'Make your account' : 'Sign in'}</h2>
+          <button className="btn btn-primary" disabled={busy} onClick={() => void social('apple')}>
+            Continue with Apple
+          </button>
+          <button className="btn" disabled={busy} onClick={() => void social('google')}>
+            Continue with Google
+          </button>
+          <p className="muted text-center text-sm">or with your email</p>
           <Text label="Your email address" type="email" value={email} onChange={setEmail} />
           <Text label="Password" {...(isNew ? { hint: 'At least 8 characters.' } : {})} type="password" value={password} onChange={setPassword} />
-          <button className="btn btn-primary" disabled={!email.includes('@') || password.length < (isNew ? 8 : 1) || busy} onClick={() => void withPassword()}>
+          <button className="btn" disabled={!email.includes('@') || password.length < (isNew ? 8 : 1) || busy} onClick={() => void withPassword()}>
             {busy ? 'One moment…' : isNew ? 'Make my account' : 'Sign in'}
           </button>
           <button className="btn" onClick={() => setIsNew(!isNew)}>
@@ -149,9 +168,7 @@ export function SignIn() {
         </Card>
       )}
       {error ? <p className="warnbox">{error}</p> : null}
-      <button className="btn self-start" onClick={() => navigate('/')}>
-        Back
-      </button>
+      <p className="muted text-sm">This account is for {APP_NAME} only. It is separate from any other Life Regulation Lab app.</p>
     </main>
   );
 }

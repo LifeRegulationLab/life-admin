@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 import { Layout } from './components/Layout';
+import { signInFirst } from './lib/firebase/app';
 import { StoreProvider, useStore } from './lib/store/StoreProvider';
 import { Add, AddKind } from './pages/Add';
 import { StuckPage, WhereWasIPage } from './pages/Aids';
@@ -17,10 +18,11 @@ import { RenewalEdit, Renewals } from './pages/Renewals';
 import { SignIn } from './pages/SignIn';
 import { Today } from './pages/Today';
 
-/** The app opens straight on Today. Nothing has to be set up first. */
+/** The app opens on sign-in; once signed in, straight on Today. Nothing else has to be set up first. */
 function Ready({ children }: { children: ReactNode }) {
-  const { ready } = useStore();
+  const { ready, user } = useStore();
   if (!ready) return <p className="muted p-6">Opening…</p>;
+  if (signInFirst() && !user) return <Navigate to="/signin" replace />;
   return children;
 }
 
