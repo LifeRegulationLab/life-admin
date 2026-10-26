@@ -9,7 +9,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Apple and Google sign-in need Firebase running before the web app loads.
-        FirebaseApp.configure()
+        // Without GoogleService-Info.plist in the app, configure() stops the app on opening, so sign-in fails instead.
+        if Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist") != nil {
+            FirebaseApp.configure()
+        }
         return true
     }
 
