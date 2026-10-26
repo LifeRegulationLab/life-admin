@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router';
 import { ItemRow } from '../components/ItemRow';
 import { Choice, Empty, Page } from '../components/ui';
 import { STATUS_INFO } from '../lib/content/kinds';
@@ -33,6 +34,9 @@ export function Everything() {
         <input className="field" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Council, a reference, a word in the letter" />
       </label>
       <Choice label="Show" options={SHOW} value={show} onChange={setShow} />
+      <Link to="/looking-back" className="btn self-start">
+        Looking back, month by month
+      </Link>
       {shown.length ? shown.map((i) => <ItemRow key={i.id} item={i} now={now} />) : <Empty>{term ? 'Nothing matches that.' : 'Nothing here yet.'}</Empty>}
     </Page>
   );

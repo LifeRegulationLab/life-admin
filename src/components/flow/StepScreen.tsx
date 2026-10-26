@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { Moss } from '../Moss';
-import { CALL_READY_TITLE, STEP_PICTURE, callScript, replyDraft } from '../../lib/content/steps';
+import { STEP_PICTURE, callScript, replyDraft } from '../../lib/content/steps';
 import { callScriptFor, draftReply, helperAvailable } from '../../lib/helper/client';
 import { toIcs } from '../../lib/logic/calendar';
 import { readFacts } from '../../lib/logic/facts';
-import { haveReady } from '../../lib/logic/ready';
 import { addRecord, completeStep, DAY, startWaiting, updateStep } from '../../lib/logic/items';
 import type { Item, Step } from '../../lib/model/types';
 import { fmtDate } from '../../lib/papers/record';
@@ -18,6 +17,10 @@ import { Area, Card, Choice, fromLocalInput, Text, toDateInput, toLocalInput } f
 import { ReadAloud, say, useEasy } from '../voice';
 import { PlusNote } from '../PlusNote';
 import { ShareStep } from './ShareStep';
+import { GetReady } from '../aids/GetReady';
+import { SendToPace } from '../aids/SendToPace';
+import { getReady, totalMinutes } from '../../lib/logic/aids';
+
 
 const HOW: { code: NonNullable<Step['how']>; text: string }[] = [
   { code: 'online', text: 'Online' },
@@ -47,7 +50,8 @@ export function StepScreen({ item, step, index, onDone }: { item: Item; step: St
   const [msg, setMsg] = useState('');
   const canHelp = settings.helperOn && helperAvailable() && Boolean(user) && plus;
   const ask = item.understanding?.ask ?? '';
-  const ready = haveReady(item);
+  const ready = getReady(item, step);
+  const total = totalMinutes(item, step);
 
   const withFields = (base: Item): Item =>
     updateStep(base, step.id, {
@@ -112,8 +116,8 @@ export function StepScreen({ item, step, index, onDone }: { item: Item; step: St
   };
 
   const help = say(easy, step.help, step.easyHelp);
-  const forCall = step.type === 'call' || step.title === CALL_READY_TITLE;
-  const spoken = `${step.title}. ${help}${forCall ? ` Have these ready. ${ready.join('. ')}.` : ''}`;
+  const readyLines = [...ready.found, ...ready.own];
+  const spoken = `${step.title}. ${help}${readyLines.length ? ` Get these ready first. ${readyLines.join('. ')}.` : ''}`;
 
   return (
     <div className="flex flex-col gap-4">
@@ -122,7 +126,7 @@ export function StepScreen({ item, step, index, onDone }: { item: Item; step: St
         <div className="flex flex-col gap-1">
           <p className="muted text-sm">
             Step {index + 1} of {item.steps.length}
-            {step.minutes ? ` · usually about ${step.minutes} minutes` : ''}
+            {total ? ` · about ${total} minutes${ready.minutes && step.minutes ? ', with getting ready' : ''}` : ''}
           </p>
           <h2 className={`${easy ? 'text-2xl' : 'text-xl'} font-semibold`}>{step.title}</h2>
         </div>
@@ -135,16 +139,7 @@ export function StepScreen({ item, step, index, onDone }: { item: Item; step: St
       ) : null}
       {ask && index === 0 ? <p className="muted text-sm">They want you to: {ask}</p> : null}
 
-      {forCall ? (
-        <Card className="flex flex-col gap-2">
-          <h3 className="font-semibold">{easy ? 'Have these ready' : 'Have ready for the call'}</h3>
-          <ul className="flex list-disc flex-col gap-1 pl-5">
-            {ready.map((line) => (
-              <li key={line}>{line}</li>
-            ))}
-          </ul>
-        </Card>
-      ) : null}
+      {step.type !== 'wait' ? <GetReady item={item} step={step} /> : null}
 
       {step.type === 'reply' || step.type === 'call' ? (
         <Card className="flex flex-col gap-3">
@@ -260,6 +255,7 @@ export function StepScreen({ item, step, index, onDone }: { item: Item; step: St
         </>
       )}
 
+      {step.type !== 'wait' ? <SendToPace item={item} step={step} /> : null}
       <ShareStep item={item} step={step} />
     </div>
   );
