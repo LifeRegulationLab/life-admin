@@ -20,6 +20,11 @@ export function firebaseConfigured(): boolean {
   return Boolean(env['VITE_FIREBASE_API_KEY'] && env['VITE_FIREBASE_PROJECT_ID'] && env['VITE_FIREBASE_APP_ID']);
 }
 
+/** Sign-in comes before anything else, except in the showcase build used for store pictures. */
+export function signInFirst(): boolean {
+  return firebaseConfigured() && env['VITE_SHOWCASE'] !== 'true';
+}
+
 let cached: { app: FirebaseApp; auth: Auth; db: Firestore } | undefined;
 
 export function firebase(): { app: FirebaseApp; auth: Auth; db: Firestore } {
