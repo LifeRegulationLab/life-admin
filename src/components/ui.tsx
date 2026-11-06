@@ -7,13 +7,13 @@ import { Link } from 'react-router';
 
 export function Page({ title, back, children, actions }: { title: string; back?: string; children: ReactNode; actions?: ReactNode }) {
   return (
-    <main className="mx-auto w-full max-w-2xl px-4 pt-4 pb-32">
+    <main id="main-content" className="app-page">
       {back ? (
         <Link to={back} className="muted mb-2 inline-block text-sm">
           ‹ Back
         </Link>
       ) : null}
-      <div className="mb-4 flex items-start justify-between gap-3 pr-20">
+      <div className="page-heading">
         <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
         {actions}
       </div>

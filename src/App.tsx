@@ -11,6 +11,7 @@ import { Everything } from './pages/Everything';
 import { Help } from './pages/Help';
 import { HelpWith } from './pages/HelpWith';
 import { ItemFlow } from './pages/ItemFlow';
+import { MoneyHome, Benefits, BenefitDetail, BenefitEdit, MoneyEntries, MoneyEntryEdit, MoneyReport } from './pages/Money';
 import { Me } from './pages/Me';
 import { Pile } from './pages/Pile';
 import { RecordPage } from './pages/Record';
@@ -54,6 +55,15 @@ export function App() {
             <Route path="where" element={<WhereWasIPage />} />
             <Route path="stuck" element={<StuckPage />} />
             <Route path="help" element={<Help />} />
+            <Route path="money" element={<MoneyHome />} />
+            <Route path="money/benefits" element={<Benefits />} />
+            <Route path="money/benefits/new" element={<BenefitEdit />} />
+            <Route path="money/benefits/:id" element={<BenefitDetail />} />
+            <Route path="money/benefits/:id/edit" element={<BenefitEdit />} />
+            <Route path="money/entries" element={<MoneyEntries />} />
+            <Route path="money/entries/new" element={<MoneyEntryEdit />} />
+            <Route path="money/entries/:id" element={<MoneyEntryEdit />} />
+            <Route path="money/report" element={<MoneyReport />} />
             <Route path="me" element={<Me />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

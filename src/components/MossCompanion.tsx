@@ -107,7 +107,7 @@ export function MossButton({ actions, settingsTo }: { actions: MossAction[]; set
         aria-label={`${settings.name}. What would help?`}
         onClick={() => setOpen(true)}
       >
-        <Moss size={44} decorative />
+        <Moss size={32} decorative /><span>{settings.name}</span>
       </button>
       {open && <MossSheet onClose={() => setOpen(false)} actions={actions} settingsTo={settingsTo} />}
     </>

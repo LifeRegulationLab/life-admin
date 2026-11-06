@@ -1,4 +1,6 @@
 import { LocalNotifications } from '@capacitor/local-notifications';
+import { benefitDates, benefitTaskId } from './logic/money';
+import type { Benefit } from './model/money';
 import { dueOf, DAY } from './logic/items';
 import type { Item, Renewal } from './model/types';
 import { inShell } from './shell';
@@ -57,15 +59,23 @@ export function remindersFor(items: readonly Item[], renewals: readonly Renewal[
   return out.sort((a, b) => a.at - b.at).slice(0, 60);
 }
 
+export function benefitRemindersFor(benefits: readonly Benefit[], items: readonly Item[], now = Date.now(), days: readonly number[] = [3, 0]): Reminder[] {
+  return benefitDates(benefits).flatMap(d => {
+    if (items.some(i => i.id === benefitTaskId(d.benefit, d.kind))) return [];
+    const due = new Date(`${d.date}T12:00:00`).getTime();
+    return days.map(day => ({ id: reminderId(`${benefitTaskId(d.benefit, d.kind)}:${day}`), at: nine(due - day * DAY), title: `${DAY_WORDS(day)}: ${d.label} for ${d.benefit.name}`, body: 'Open Money & benefits for the dates and next steps.' })).filter(r => r.at > now);
+  });
+}
+
 let asked = false;
 
-export async function scheduleReminders(items: readonly Item[], renewals: readonly Renewal[], on: boolean, days: readonly number[] = [3, 0]): Promise<void> {
+export async function scheduleReminders(items: readonly Item[], renewals: readonly Renewal[], on: boolean, days: readonly number[] = [3, 0], benefits: readonly Benefit[] = []): Promise<void> {
   if (!inShell()) return;
   try {
     const pending = await LocalNotifications.getPending();
     if (pending.notifications.length) await LocalNotifications.cancel({ notifications: pending.notifications.map((n) => ({ id: n.id })) });
     if (!on) return;
-    const list = remindersFor(items, renewals, Date.now(), days);
+    const list = [...remindersFor(items, renewals, Date.now(), days), ...benefitRemindersFor(benefits, items, Date.now(), days)].sort((a, b) => a.at - b.at).slice(0, 60);
     if (!list.length) return;
     if (!asked) {
       asked = true;

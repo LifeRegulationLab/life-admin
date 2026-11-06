@@ -7,6 +7,8 @@ Author: Stuart Houlihan
 ## What it does
 
 - **Today**: what needs doing, nearest date first. Things waiting for someone else's reply are kept apart, so they never look like more to do. They come back when it is time to chase.
+- **Calmer navigation**: one prominent next action, a low-capacity view, pastel sections and an always-available bottom bar: Today, Add, Money, Records and Me. Settings are grouped into short expandable sections.
+- **Money & benefits**: keep claim status, jurisdiction, reporting periods, review dates and linked letters together. Expected payments stay separate from received money. Record benefits, take-home wages, business income, other income and spending with evidence references. Prepare a checked CSV for an exact date range; it does not calculate entitlement or submit anything. Benefit deadlines open ordinary saved tasks, with proof of sending at the end.
 - **Add**: choose what it is, then take a photo of each page, paste an email, or type. The words are read on the phone (no upload). Dates, amounts, references and phone numbers are found and shown with the words they came from. Signs of a scam are flagged.
 - **One step per screen**: each kind of thing has its usual steps with help for each (plain and easy-read). Reply steps give a simple letter to start from; call steps give a script and the number. Send, pay and proof steps keep the date, the reference and a photo of the proof. Appointments go into the calendar.
 - **Stop and come back**: "Stop here" asks where you got to and shows it when you return, on the same step.
@@ -40,6 +42,8 @@ npm run check   # types, lint, build, tests
 With no `.env`, everything works on the device with no account. See `.env.example` for the switches and `docs/SETUP.md` for the Firebase project, the helper and read aloud.
 
 ## Where things are
+
+The [6 November design and finance review](docs/DESIGN-MONEY-REVIEW-2026-11-06.md) records the public comparisons, implementation, verification and release limits.
 
 - `src/lib/model/types.ts`: the records.
 - `src/lib/content/`: kinds of thing and the steps with their help.
