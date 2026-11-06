@@ -292,7 +292,7 @@ html[data-spacing='wide'] .card {
 .app-header-inner { max-width: 56rem; min-height: 76px; padding: 12px 24px; margin: auto; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .brand-lockup { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 700; line-height: 1.3; text-decoration: none; }
 .brand-lockup img { border-radius: 8px; }
-.brand-caption { display: block; font-size: 9px; letter-spacing: .16em; color: var(--muted); margin-top: 3px; }
+.brand-caption { display: block; font-size: 9px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); margin-top: 3px; }
 .help-link { min-height: 40px; padding: 7px 16px; font-size: 14px; }
 .app-page { margin: auto; max-width: 50rem; padding: 28px 24px calc(156px + env(safe-area-inset-bottom)); }
 .page-heading { display: flex; align-items: start; justify-content: space-between; gap: 16px; margin-bottom: 10px; }

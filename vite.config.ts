@@ -33,7 +33,6 @@ function ocrFiles(): Plugin {
 
 export default defineConfig({
   plugins: [react(), tailwindcss(), ocrFiles()],
-  server: { allowedHosts: ['terminal.local'] },
   test: {
     environment: 'node',
     include: ['src/**/*.test.{ts,tsx}', 'functions/src/**/*.test.ts'],
