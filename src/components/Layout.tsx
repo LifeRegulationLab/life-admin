@@ -27,7 +27,7 @@ export function Layout() {
       {!user && firebaseConfigured() && import.meta.env['VITE_SHOWCASE'] !== 'true' && <div className="account-note">Looking around. <Link to="/signin" className="underline">Make an account</Link> to keep your records across devices.</div>}
       {syncIssue && <div className="sync-notice warnbox" role="alert">{syncIssue}</div>}
       <Outlet />
-      <MossButton actions={MOSS_ACTIONS} settingsTo={MOSS_SETTINGS} />
+      {pathname !== '/' && <MossButton actions={MOSS_ACTIONS} settingsTo={MOSS_SETTINGS} />}
       <UndoBar />
       <nav aria-label="Main" className="bottom-nav"><div className="nav-inner">{TABS.map(t => <NavLink key={t.to} to={t.to} end={'end' in t} className={({ isActive }) => `tab${isActive || (t.to === '/all' && ['/renewals', '/looking-back'].some(p => pathname.startsWith(p))) ? ' selected' : ''}`}><span className="tab-icon"><TabIcon name={t.icon} /></span>{t.label}</NavLink>)}</div></nav>
     </div>

@@ -1,5 +1,7 @@
 import { Link } from 'react-router';
 import { FromMull } from '../components/aids/FromMull';
+import { MossHome } from '../components/MossCompanion';
+import { MOSS_ACTIONS, MOSS_SETTINGS } from '../lib/moss/actions';
 import { itemName, ItemRow } from '../components/ItemRow';
 import { Picture } from '../components/Picture';
 import { TabIcon } from '../components/TabIcon';
@@ -29,6 +31,7 @@ export function Today() {
   return <Page title="Today">
     <p className="page-intro">{easy ? 'One thing at a time.' : 'A clear place to start. Your other admin stays here.'}</p>
     <div className="today-tools"><label className="capacity-control"><input type="checkbox" checked={justNext} onChange={e => void saveSettings({ ...data.settings, justNext: e.target.checked })} /><span>Low capacity<span>Show just the next action</span></span></label><ReadAloud text={summary} /></div>
+    <MossHome actions={MOSS_ACTIONS} settingsTo={MOSS_SETTINGS} />
     <section className="next-action" aria-labelledby="next-action-title"><div className="next-action-top"><span className="eyebrow">{first ? 'Your next action' : 'Start here'}</span><span className="icon-tile"><Picture name={first ? 'letter' : 'done'} size={26} /></span></div><h2 id="next-action-title">{first ? itemName(first) : 'A little less to hold in your head.'}</h2><p>{first ? first.status === 'waiting' ? `Check whether ${first.waiting?.forWhat || 'the reply'} has arrived.` : step?.title || 'Open it and check what is needed.' : 'Add a letter, bill or form. Keep its next step, reply and proof together.'}</p>{first && <span className="status-pill">{whenWords(dueOf(first), now)}{step?.minutes ? ` · About ${step.minutes} min` : ''}</span>}<Link to={first ? `/item/${first.id}` : '/add'} className="btn btn-primary">{first ? first.pausedNote || first.steps.some(s => s.done) ? 'Carry on from here' : 'Start this step' : 'Add something'} <span aria-hidden="true">→</span></Link></section>
     <div className="overview-links"><Link to="/all?show=open"><strong>{l.next.length + l.unsorted.length}</strong><span>To deal with</span></Link><Link to="/all?show=waiting"><strong>{l.waiting.length}</strong><span>Waiting for them</span></Link><Link to="/all?show=done"><strong>{l.done.length}</strong><span>Dealt with</span></Link></div>
     {dates.length > 0 && <section className="space-y-3"><h2 className="section-title">Dates to keep in view</h2><p className="muted text-sm">Close dates stay visible, including on a low-capacity day.</p>{dates.map(i => <ItemRow key={i.id} item={i} now={now} />)}</section>}
