@@ -130,6 +130,7 @@ function Flow({ item }: { item: Item }) {
   return (
     <Page title={itemName(item)} back="/">
       {header}
+      {item.benefitId ? <div className="flex flex-wrap gap-2"><Link to={`/money/benefits/${item.benefitId}`} className="chip">Benefit dates & payments</Link><Link to={`/money/report?benefit=${item.benefitId}`} className="chip">Open money report</Link></div> : null}
       {view.name === 'step' && placeCard ? <WhereWasICard where={placeCard} /> : null}
 
       {view.name === 'stuck' ? (

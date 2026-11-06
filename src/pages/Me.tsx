@@ -11,6 +11,7 @@ import { moss } from '../lib/moss/link';
 import type { ReadAloud as ReadAloudSetting, Settings, TextSize } from '../lib/model/types';
 import { inShell, saveFile } from '../lib/shell';
 import { recordedVoiceAvailable } from '../lib/speech';
+import { validBenefit, validEntry } from '../lib/logic/money';
 import { COLLECTIONS, DOCS } from '../lib/store/backend';
 import { clear } from '../lib/store/blobs';
 import { useStore } from '../lib/store/StoreProvider';
@@ -37,7 +38,7 @@ const READ: { code: ReadAloudSetting; text: string }[] = [
 
 /** The person's own settings, the account, and leaving. */
 export function Me() {
-  const { data, saveSettings, user, device, saveItem, saveRenewal, plus, paid } = useStore();
+  const { data, saveSettings, user, device, saveItem, saveRenewal, saveBenefit, saveMoney, plus, paid } = useStore();
   const [billingNote, setBillingNote] = useState('');
   const thanks = new URLSearchParams(window.location.search).get('plus') === 'thanks';
   const onSale = Boolean(import.meta.env['VITE_CHECKOUT_URL']);
@@ -51,19 +52,24 @@ export function Me() {
   const set = (change: Partial<Settings>) => void saveSettings({ ...s, ...change });
 
   const exportAll = async () => {
-    const body = JSON.stringify({ app: APP_FULL_NAME, exportedAt: new Date().toISOString(), items: data.items, renewals: data.renewals, settings: data.settings }, null, 2);
+    const body = JSON.stringify({ app: APP_FULL_NAME, exportedAt: new Date().toISOString(), ...data }, null, 2);
     await saveFile(`${APP_NAME.toLowerCase().replace(/\s+/g, '-')}-export.json`, new TextEncoder().encode(body), 'application/json');
   };
 
   const importFile = async (file: File | undefined) => {
     if (!file) return;
     try {
-      const v = JSON.parse(await file.text()) as { items?: unknown; renewals?: unknown };
+      const v = JSON.parse(await file.text()) as { items?: unknown; renewals?: unknown; benefits?: unknown; money?: unknown };
       const items = Array.isArray(v.items) ? (v.items as typeof data.items) : [];
       const renewals = Array.isArray(v.renewals) ? (v.renewals as typeof data.renewals) : [];
+      const benefits = Array.isArray(v.benefits) ? (v.benefits as typeof data.benefits) : [];
+      const money = Array.isArray(v.money) ? (v.money as typeof data.money) : [];
+      if (!benefits.every(b => b && validBenefit(b)) || !money.every(e => e && validEntry(e))) throw new Error('Invalid money records');
+      for (const b of benefits) await saveBenefit(b);
+      for (const e of money) await saveMoney(e);
       for (const i of items) if (i && typeof i.id === 'string') await saveItem(i);
       for (const r of renewals) if (r && typeof r.id === 'string') await saveRenewal(r);
-      setMsg(`Brought in ${items.length} things and ${renewals.length} renewals.`);
+      setMsg(`Brought in ${items.length} things, ${renewals.length} renewals, ${benefits.length} benefits and ${money.length} money records.`);
     } catch {
       setMsg('That file could not be read. It needs to be an export from this app.');
     }
@@ -94,8 +100,7 @@ export function Me() {
   return (
     <Page title="Me">
       <ReadAloud text="Your settings. Your name, easy-read, text size, read aloud, and your account." auto={false} />
-      <Card className="flex flex-col gap-3">
-        <h2 className="font-semibold">For your replies</h2>
+      <details className="card disclosure"><summary>For your replies</summary><div className="form-section">
         <Text label="Your name" value={name} onChange={setName} />
         <Field label="Your address" hint="Put at the top of letters you write. Optional.">
           <textarea className="field" rows={3} value={address} onChange={(e) => setAddress(e.target.value)} />
@@ -103,10 +108,9 @@ export function Me() {
         <button type="button" className="btn self-start" disabled={name === s.name && address === s.address} onClick={() => set({ name, address })}>
           Save
         </button>
-      </Card>
+      </div></details>
 
-      <Card className="flex flex-col gap-4">
-        <h2 className="font-semibold">Reading</h2>
+      <details className="card disclosure"><summary>Reading</summary><div className="form-section">
         <label className="flex items-center gap-3">
           <input type="checkbox" checked={s.easyRead} onChange={(e) => set({ easyRead: e.target.checked })} />
           <span>Easy-read: shorter sentences and bigger pictures</span>
@@ -136,7 +140,7 @@ export function Me() {
           <input type="checkbox" checked={s.deviceVoice} onChange={(e) => set({ deviceVoice: e.target.checked })} />
           <span>When the recorded voice cannot be reached, use this phone’s own voice</span>
         </label>
-      </Card>
+      </div></details>
 
       {firebaseConfigured() && (onSale || plus) ? (
         <div id="plus">
@@ -174,8 +178,7 @@ export function Me() {
         </div>
       ) : null}
 
-      <Card className="flex flex-col gap-3">
-        <h2 className="font-semibold">Reminders and the helper</h2>
+      <details className="card disclosure"><summary>Reminders and the helper</summary><div className="form-section">
         <label className="flex items-center gap-3">
           <input type="checkbox" checked={s.streaks} onChange={(e) => set({ streaks: e.target.checked })} />
           <span>Show weeks in a row with something dealt with</span>
@@ -212,12 +215,11 @@ export function Me() {
             <p className="muted text-sm">When you press Explain or Draft, the words of that one thing are sent to be read, then forgotten. Nothing else is sent. Every step works without it.</p>
           </>
         ) : null}
-      </Card>
+      </div></details>
 
-      <MossCard />
+      <details className="card disclosure"><summary>Moss settings</summary><div className="form-section"><MossCard /></div></details>
 
-      <Card className="flex flex-col gap-3">
-        <h2 className="font-semibold">Account</h2>
+      <details className="card disclosure"><summary>Account</summary><div className="form-section">
         {!firebaseConfigured() ? (
           <p>Everything is kept on this phone. Accounts are not switched on in this version.</p>
         ) : user ? (
@@ -236,10 +238,9 @@ export function Me() {
             </Link>
           </>
         )}
-      </Card>
+      </div></details>
 
-      <Card className="flex flex-col gap-3">
-        <h2 className="font-semibold">Your records</h2>
+      <details className="card disclosure"><summary>Your records</summary><div className="form-section">
         <button type="button" className="btn self-start" onClick={() => void exportAll()}>
           Save a copy of everything
         </button>
@@ -278,7 +279,7 @@ export function Me() {
             </div>
           </div>
         )}
-      </Card>
+      </div></details>
       <p className="muted text-sm">{APP_FULL_NAME}. It explains and organises; it is not legal or financial advice.</p>
     </Page>
   );

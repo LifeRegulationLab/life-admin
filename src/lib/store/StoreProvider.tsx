@@ -6,6 +6,8 @@ import { refreshPlan, watchPlan, watchUser } from '../firebase/account';
 import { SharedBackend } from '../firebase/shared';
 import { renewalsNeedingItems, roll } from '../logic/renewals';
 import { DEFAULT_SETTINGS, type Item, type Renewal, type Settings } from '../model/types';
+import type { Benefit, MoneyEntry } from '../model/money';
+import { validBenefit, validEntry } from '../logic/money';
 import { scheduleReminders } from '../reminders';
 import type { Backend } from './backend';
 import { deviceStorage, LocalBackend } from './local';
@@ -20,10 +22,12 @@ export const DEVICE_PREFIX = `${STORAGE_PREFIX}:device`;
 export interface Data {
   items: Item[];
   renewals: Renewal[];
+  benefits: Benefit[];
+  money: MoneyEntry[];
   settings: Settings;
 }
 
-const EMPTY: Data = { items: [], renewals: [], settings: DEFAULT_SETTINGS };
+const EMPTY: Data = { items: [], renewals: [], benefits: [], money: [], settings: DEFAULT_SETTINGS };
 
 export interface StoreValue {
   ready: boolean;
@@ -40,6 +44,9 @@ export interface StoreValue {
   saveRenewal: (r: Renewal) => Promise<void>;
   removeRenewal: (id: string) => Promise<void>;
   saveSettings: (s: Settings) => Promise<void>;
+  saveBenefit: (b: Benefit) => Promise<void>;
+  saveMoney: (entry: MoneyEntry) => Promise<void>;
+  syncIssue: string;
   /** The last change that can be taken back, shown as an Undo bar for a short while. */
   undo: { label: string; at: number } | undefined;
   /** Remembers how a thing was before a change, so Undo can put it back. */
@@ -57,7 +64,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const device = useMemo(() => new LocalBackend(DEVICE_PREFIX, deviceStorage()), []);
   const [user, setUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(!firebaseConfigured());
-  const [held, setHeld] = useState<{ owner: Backend | null; data: Data; loaded: number }>({ owner: null, data: EMPTY, loaded: 0 });
+  const [held, setHeld] = useState<{ owner: Backend | null; data: Data; loaded: Set<string> }>({ owner: null, data: EMPTY, loaded: new Set() });
+  const [syncIssue, setSyncIssue] = useState('');
 
   useEffect(() => {
     if (!firebaseConfigured()) return;
@@ -75,24 +83,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [user]);
   const ownPlan = user && plan?.uid === user.uid ? plan : undefined;
 
-  const backend: Backend = useMemo(() => (user ? new SharedBackend(firebase().db, user.uid) : device), [user, device]);
+  const backend: Backend = useMemo(() => (user ? new SharedBackend(firebase().db, user.uid, setSyncIssue) : device), [user, device]);
 
   useEffect(() => {
     const put = (change: Partial<Data>) =>
       setHeld((h) => {
         const same = h.owner === backend;
-        return { owner: backend, data: { ...(same ? h.data : EMPTY), ...change }, loaded: (same ? h.loaded : 0) + 1 };
+        return { owner: backend, data: { ...(same ? h.data : EMPTY), ...change }, loaded: new Set([...(same ? h.loaded : []), ...Object.keys(change)]) };
       });
     const unsubs = [
       backend.listen<Item>('items', (items) => put({ items })),
       backend.listen<Renewal>('renewals', (renewals) => put({ renewals })),
+      backend.listen<Benefit>('benefits', (benefits) => put({ benefits })),
+      backend.listen<MoneyEntry>('money', (money) => put({ money })),
       backend.listenDoc<Settings>('settings', (v) => put({ settings: { ...DEFAULT_SETTINGS, ...v } })),
     ];
     return () => unsubs.forEach((u) => u());
   }, [backend]);
 
   const data = held.owner === backend ? held.data : EMPTY;
-  const loaded = held.owner === backend && held.loaded >= 3;
+  const loaded = held.owner === backend && held.loaded.size >= 5;
 
   // Renewals turn into something to deal with when their date is near.
   const made = useRef(new Set<string>());
@@ -109,8 +119,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!loaded) return;
-    void scheduleReminders(data.items, data.renewals, data.settings.reminders, data.settings.remindDays);
-  }, [loaded, data.items, data.renewals, data.settings.reminders, data.settings.remindDays]);
+    void scheduleReminders(data.items, data.renewals, data.settings.reminders, data.settings.remindDays, data.benefits);
+  }, [loaded, data.items, data.renewals, data.settings.reminders, data.settings.remindDays, data.benefits]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -125,7 +135,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [undoTick, setUndoTick] = useState(0);
 
   const value: StoreValue = {
-    ready: authReady,
+    ready: authReady && loaded,
     user,
     data,
     backend,
@@ -150,6 +160,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     saveRenewal: (r) => backend.save('renewals', r),
     removeRenewal: (id) => backend.remove('renewals', id),
     saveSettings: (s) => backend.saveDoc('settings', s),
+    saveBenefit: async (b) => {
+      if (!validBenefit(b)) throw new Error('Check the benefit name, dates and amount.');
+      await backend.save('benefits', b);
+    },
+    saveMoney: async (entry) => {
+      if (!validEntry(entry)) throw new Error('Check the amount, date and description.');
+      await backend.save('money', entry);
+    },
+    syncIssue,
     undo: undoState ? { label: undoState.label, at: undoState.at } : undefined,
     offerUndo: (label, before) => setUndoState({ label, at: Date.now(), before }),
     runUndo: async () => {

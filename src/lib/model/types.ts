@@ -134,6 +134,8 @@ export interface Item {
   links?: string[];
   /** Set when this item was made from a renewal. */
   renewalId?: string;
+  /** Links a benefits reporting/review task back to its dates and money report. */
+  benefitId?: string;
   /** Set by pile-of-post mode until the item has been sorted. */
   unsorted?: boolean;
   createdAt: number;

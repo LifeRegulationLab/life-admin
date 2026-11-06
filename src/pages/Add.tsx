@@ -33,17 +33,19 @@ export function Add() {
   if (incoming.kind) return <Navigate to={`/add/${incoming.kind}${carry}`} replace />;
   return (
     <Page title={easy ? 'What is it?' : 'Add something'}>
+      <p className="page-intro">Capture it here. We will work through it one step at a time.</p>
       <ReadAloud text={easy ? 'What is it? Choose one.' : 'What kind of thing is it? Choose one.'} />
       <FromApp incoming={incoming} />
-      <div className="grid grid-cols-2 gap-3">
+      <div className="capture-grid">
         {KINDS.map((k) => (
-          <Link key={k} to={`/add/${k}${carry}`} className="card flex min-h-24 flex-col items-start gap-2">
+          <Link key={k} to={`/add/${k}${carry}`} className={`capture-card capture-${k}`}>
             <Picture name={KIND_INFO[k].picture} size={easy ? 40 : 30} />
             <span className="font-semibold">{easy ? KIND_INFO[k].easy : KIND_INFO[k].name}</span>
             {easy ? null : <span className="muted text-sm">{KIND_INFO[k].hint}</span>}
           </Link>
         ))}
       </div>
+      <Link to="/money/entries/new" className="card tone-mint"><strong>Record a payment or expense →</strong><span className="block text-sm mt-1">Use Money & benefits to track amounts and prepare reports.</span></Link>
       <Link to="/pile" className="btn">
         <Picture name="pile" size={20} />
         Several at once: pile of post

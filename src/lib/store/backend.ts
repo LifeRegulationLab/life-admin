@@ -4,7 +4,7 @@
  * The account belongs to this app alone; no other Life Regulation Lab app can read or delete it.
  */
 
-export const COLLECTIONS = ['items', 'renewals'] as const;
+export const COLLECTIONS = ['items', 'renewals', 'benefits', 'money'] as const;
 export type Collection = (typeof COLLECTIONS)[number];
 
 export const DOCS = ['settings'] as const;
