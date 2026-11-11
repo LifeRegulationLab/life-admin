@@ -5,7 +5,7 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 
 export default tseslint.config(
-  { ignores: ['dist', 'node_modules', 'ios', 'android', 'functions/lib', 'functions/node_modules', 'functions/src/index.ts'] },
+  { ignores: ['dist', 'node_modules', 'ios', 'android', 'functions/lib', 'functions/node_modules', 'functions/src/index.ts', 'supabase/functions'] },
   js.configs.recommended,
   ...tseslint.configs.strict,
   {

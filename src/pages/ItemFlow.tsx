@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { removeShare } from '../lib/account';
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router';
 import { KeepMoving } from '../components/aids/KeepMoving';
 import { StuckPanel } from '../components/aids/Stuck';
@@ -12,7 +13,6 @@ import { Picture } from '../components/Picture';
 import { Stages } from '../components/Stages';
 import { Area, Card, Page } from '../components/ui';
 import { ReadAloud, useEasy } from '../components/voice';
-import { removeShare } from '../lib/firebase/account';
 import { whereWasI } from '../lib/logic/aids';
 import { addRecord, currentStep, dueOf, markDone, pause, reopenStep, replyCame, whenWords } from '../lib/logic/items';
 import { CHASE_STEP, makeStep } from '../lib/content/steps';

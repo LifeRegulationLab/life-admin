@@ -1,9 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { User } from 'firebase/auth';
 import { STORAGE_PREFIX } from '../brand';
-import { firebase, firebaseConfigured } from '../firebase/app';
-import { refreshPlan, watchPlan, watchUser } from '../firebase/account';
-import { SharedBackend } from '../firebase/shared';
+import { accountsOn, backendFor, refreshPlan, syncNow, watchPlan, watchUser, type AccountUser } from '../account';
 import { renewalsNeedingItems, roll } from '../logic/renewals';
 import { DEFAULT_SETTINGS, type Item, type Renewal, type Settings } from '../model/types';
 import type { Benefit, MoneyEntry } from '../model/money';
@@ -31,7 +28,7 @@ const EMPTY: Data = { items: [], renewals: [], benefits: [], money: [], settings
 
 export interface StoreValue {
   ready: boolean;
-  user: User | null;
+  user: AccountUser | null;
   data: Data;
   backend: Backend;
   device: LocalBackend;
@@ -62,13 +59,13 @@ const Ctx = createContext<StoreValue | null>(null);
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const device = useMemo(() => new LocalBackend(DEVICE_PREFIX, deviceStorage()), []);
-  const [user, setUser] = useState<User | null>(null);
-  const [authReady, setAuthReady] = useState(!firebaseConfigured());
+  const [user, setUser] = useState<AccountUser | null>(null);
+  const [authReady, setAuthReady] = useState(!accountsOn());
   const [held, setHeld] = useState<{ owner: Backend | null; data: Data; loaded: Set<string> }>({ owner: null, data: EMPTY, loaded: new Set() });
   const [syncIssue, setSyncIssue] = useState('');
 
   useEffect(() => {
-    if (!firebaseConfigured()) return;
+    if (!accountsOn()) return;
     return watchUser((u) => {
       setUser(u);
       setAuthReady(true);
@@ -83,7 +80,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [user]);
   const ownPlan = user && plan?.uid === user.uid ? plan : undefined;
 
-  const backend: Backend = useMemo(() => (user ? new SharedBackend(firebase().db, user.uid, setSyncIssue) : device), [user, device]);
+  const uid = user?.uid;
+  const backend: Backend = useMemo(() => (uid ? backendFor(uid, setSyncIssue) : device), [uid, device]);
+
+  // With the shared account: when the signal comes back or the app comes to the front, send
+  // what is waiting and fetch again. The Firebase store does this by itself.
+  useEffect(() => {
+    if (!uid) return;
+    const front = () => {
+      if (document.visibilityState === 'visible') syncNow();
+    };
+    window.addEventListener('online', syncNow);
+    document.addEventListener('visibilitychange', front);
+    return () => {
+      window.removeEventListener('online', syncNow);
+      document.removeEventListener('visibilitychange', front);
+    };
+  }, [uid]);
 
   useEffect(() => {
     const put = (change: Partial<Data>) =>
