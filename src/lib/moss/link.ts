@@ -26,12 +26,36 @@ export type MossSettings = {
 };
 
 /** A task going to Pace, exactly as the person saw it on "this is what will move". */
-export type TaskForPace = { title: string; minutes?: number; firstStep?: string; ready?: string[]; readyMinutes?: number };
+export type TaskForPace = {
+  title: string;
+  minutes?: number;
+  firstStep?: string;
+  ready?: string[];
+  readyMinutes?: number;
+  /** The id of the letter it came from, so Pace can offer the way back. An id only, never words. */
+  source?: string;
+};
 
 /** A call script Mull prepared and the person chose to keep in Dealt With. */
 export type ScriptFromMull = { id: string; title: string; body: string; fromApp: string };
 
 export type HandoverStatus = 'pending' | 'added' | 'declined';
+/**
+ * Where a step sent to Pace has got to. Each is a different thing: waiting for Pace, in Pace's
+ * list, ticked done in Pace, not added there, or no longer on the server at all. Finished in Pace
+ * never marks the step done here; the person does that.
+ */
+export type PaceProgress = 'sent' | 'added' | 'finished' | 'declined' | 'gone';
+
+/** An id for a hand-over, made here before sending so a second try can never make a second task. */
+export function newHandoverId(): string {
+  return crypto.randomUUID();
+}
+
+/** The id of a letter is letters and digits. Anything else is not sent as the way back. */
+export function sourceRef(id: string | undefined): string | undefined {
+  return id && /^[A-Za-z0-9_-]{1,80}$/.test(id) ? id : undefined;
+}
 export type MossLink = { email: string; access: string; refresh: string; expiresAt: number };
 
 const SETTINGS_KEY = `${STORAGE_PREFIX}:moss`;
@@ -239,40 +263,54 @@ export class Moss {
     return Boolean(r?.ok);
   }
 
-  /** Passes one task to Pace. It waits on the server until Pace has added it. Returns its id. */
-  async sendToPace(task: TaskForPace): Promise<string> {
+  /**
+   * Passes one task to Pace. It waits on the server until Pace has added it. The id is made by the
+   * caller and kept with the step first, so sending again with the same id (after a lost reply)
+   * adds nothing: the server keeps the one it already has.
+   */
+  async sendToPace(task: TaskForPace, id: string): Promise<void> {
     const title = task.title.replace(/\s+/g, ' ').trim().slice(0, 120);
     if (!title) throw new MossError('The task needs a name.');
-    const body: Record<string, unknown> = { from_app: 'dealt-with', to_app: 'pace', kind: 'task', title };
+    const body: Record<string, unknown> = { id, from_app: 'dealt-with', to_app: 'pace', kind: 'task', title };
     if (task.minutes) body['minutes'] = Math.min(480, Math.max(1, Math.round(task.minutes)));
     if (task.firstStep?.trim()) body['first_step'] = task.firstStep.trim().slice(0, 120);
     const ready = (task.ready ?? []).map((l) => l.trim().slice(0, 120)).filter(Boolean).slice(0, 10);
     if (ready.length) body['ready'] = ready;
     if (task.readyMinutes !== undefined) body['ready_minutes'] = Math.min(240, Math.max(0, Math.round(task.readyMinutes)));
+    const source = sourceRef(task.source);
+    if (source) body['source_ref'] = source;
     let r: Response | undefined;
     try {
-      r = await this.rest('moss_handovers', { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(body) });
+      r = await this.rest('moss_handovers?on_conflict=id', { method: 'POST', headers: { Prefer: 'resolution=ignore-duplicates,return=minimal' }, body: JSON.stringify(body) });
     } catch {
       throw new MossError('Moss could not be reached. Check the signal and try again.');
     }
     if (!r) throw new MossError('Connect Moss first, in Me.');
     if (!r.ok) throw new MossError('It was not sent. Try again later.');
-    const rows = (await r.json()) as { id: string }[];
-    const id = rows[0]?.id;
-    if (!id) throw new MossError('It was not sent. Try again later.');
-    return id;
   }
 
-  /** Where each handover has got to: still waiting for Pace, added, or declined there. */
-  async handoverStatus(ids: readonly string[]): Promise<Record<string, HandoverStatus>> {
+  /**
+   * Where each step sent to Pace has got to. An id the server no longer has is 'gone'. When the
+   * server cannot be asked the answer is undefined, so nothing is claimed.
+   */
+  async paceProgress(ids: readonly string[]): Promise<Record<string, PaceProgress> | undefined> {
     if (!ids.length) return {};
     try {
-      const r = await this.rest(`moss_handovers?select=id,status&id=in.(${ids.map(encodeURIComponent).join(',')})`, { method: 'GET' });
-      if (!r?.ok) return {};
-      const rows = (await r.json()) as { id: string; status: HandoverStatus }[];
-      return Object.fromEntries(rows.map((x) => [x.id, x.status]));
+      const r = await this.rest(`moss_handovers?select=id,status,done_at&id=in.(${ids.map(encodeURIComponent).join(',')})`, { method: 'GET' });
+      if (!r?.ok) return undefined;
+      const rows = (await r.json()) as { id: string; status: HandoverStatus; done_at?: string | null }[];
+      const found = new Map(rows.map((x) => [x.id, x]));
+      return Object.fromEntries(
+        ids.map((id) => {
+          const row = found.get(id);
+          if (!row) return [id, 'gone'];
+          if (row.status === 'declined') return [id, 'declined'];
+          if (row.status === 'pending') return [id, 'sent'];
+          return [id, row.done_at ? 'finished' : 'added'];
+        }),
+      );
     } catch {
-      return {};
+      return undefined;
     }
   }
 

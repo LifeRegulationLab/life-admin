@@ -62,8 +62,10 @@ export interface Step {
   readyTicked?: string[];
   /** Minutes to get ready, counted apart from the step itself. */
   readyMinutes?: number;
-  /** Set when this step was sent to Pace through Moss: the handover's id, to show if Pace added it. */
+  /** Set when this step was sent to Pace through Moss: the handover's id, to show where it has got to. */
   paceHandover?: string;
+  /** True from the moment the id is kept until Pace's server has taken the step. A retry uses the same id. */
+  paceUnsent?: boolean;
 }
 
 export const RECORD_KINDS = ['note', 'sent', 'proof', 'call', 'paid', 'received', 'booked', 'done'] as const;
