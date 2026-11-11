@@ -167,3 +167,8 @@ end;
 $$;
 revoke all on function dealt_with.delete_my_account() from public, anon;
 grant execute on function dealt_with.delete_my_account() to authenticated;
+
+-- The functions on the server (the helper, read aloud, and later payments) read and write plans
+-- with the server's own key. Outside "public" that key is given nothing by default.
+grant select, insert, update, delete on dealt_with.plans to service_role;
+grant select, insert, update, delete on dealt_with.records, dealt_with.docs, dealt_with.shares to service_role;

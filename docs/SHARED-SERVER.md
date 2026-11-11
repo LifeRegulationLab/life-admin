@@ -10,11 +10,34 @@ Nothing about the live app changes until stage 4.
 
 | Stage | What | State |
 | --- | --- | --- |
-| 1 | The `dealt_with` schema on the shared server (`supabase/0001_dealt_with.sql`); the synced store (`src/lib/store/synced.ts`) and its calls to the server (`src/lib/shared/remote.ts`) | Built and tested. Not used by the app yet. |
-| 2 | Sign-in with the shared account: Apple, Google and an email code. The Dealt With pages that use `src/lib/firebase/account.ts` move to it | Not started |
-| 3 | The helper, read aloud and Plus (checkout, portal, webhook) check the shared sign-in. Supporter links (`shares`) move | Not started |
-| 4 | The switch: the build points at the shared server, records already in an account are carried across, a new phone build | Not started |
+| 1 | The `dealt_with` schema (`supabase/0001_dealt_with.sql`); the synced store (`src/lib/store/synced.ts`) and its calls (`src/lib/shared/remote.ts`) | Built, tested, applied |
+| 2 | The shared account: Apple, Google and an email code (`src/lib/shared/account.ts`); every page goes through `src/lib/account/`; supporter links, Plus and deleting (`supabase/0002_account.sql`) | Built, tested, applied. Not yet used on a phone |
+| 3 | The helper and read aloud on the shared server (`supabase/functions/`), checking the shared sign-in and `dealt_with.plans` | Built. Deployed from the Mac with `scripts/deploy-shared.sh` |
+| 4 | The switch: `.env.production` names the shared server | In this change. Live once the website is deployed and a phone build is made |
 | 5 | A letter handed to Pace keeps its source, and comes back to be marked dealt with | Not started |
+
+There were no accounts or records in the Firebase project to carry across (Stuart, 11 November
+2026), so the shared account starts empty.
+
+## Not moved yet
+
+- **Payments.** Checkout, the portal and Stripe's webhook are still the Firebase functions and
+  still check a Firebase sign-in, so they do not work with the shared account. Plus is not on sale
+  (`VITE_CHECKOUT_URL` is empty), so nothing is lost today. Testers are given Plus by the owner:
+  `select dealt_with.grant_tester_plus('person@example.com');`
+- **The phone's Apple and Google sheets** still come from the Firebase plug-in, which only hands
+  over the result. Apple needs `com.liferegulationlab.dealtwith` among the shared project's Apple
+  client ids; Google needs this app's iPhone client id (in `GoogleService-Info.plist`) among its
+  Google client ids.
+
+## To put it live, on the Mac
+
+```
+zsh scripts/deploy-shared.sh
+```
+
+then a phone build. The shared project also needs `https://dealt-with-lrl.web.app/**` among its
+sign-in return addresses and `dealt_with` among its exposed schemas.
 
 ## What stage 1 is
 
@@ -35,10 +58,3 @@ Nothing about the live app changes until stage 4.
 Life Regulation Lab app." The second sentence stays true and is how the shared server already
 works for the other apps: deleting in Dealt With removes Dealt With's rows, and the sign-in itself
 goes only if no other app uses it. The first sentence changes: the account becomes the shared one.
-
-## Still to decide before stage 4
-
-- Whether records in existing Firebase accounts are carried across automatically at first sign-in,
-  or only by "Move them into my account" from the device copy.
-- Where the helper, read aloud and billing functions run (they can stay on Firebase Functions and
-  check the shared sign-in, or move to the shared server's functions).
