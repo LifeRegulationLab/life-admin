@@ -3,14 +3,15 @@
 #   zsh scripts/deploy-shared.sh
 # 1. The helper and read aloud functions go to the shared Life Regulation Lab server, exactly as
 #    they are in this folder. 2. The website is built and sent to Firebase Hosting.
-# It asks you to sign in to Supabase or Firebase in the browser the first time, and never asks for
-# or prints a key.
+# If Supabase says you are not signed in, run "npx -y supabase login" first. If Firebase says your
+# credentials are no longer valid, run "npx -y firebase-tools login --reauth" first. It never asks
+# for or prints a key.
 set -e
 cd "$(dirname "$0")/.."
 PROJECT=xgeacgbeiivcbrgdfpbf
 print "== The functions"
 for fn in dealt-with-helper dealt-with-voice; do
-  npx -y supabase functions deploy $fn --project-ref $PROJECT --no-verify-jwt
+  npx -y supabase functions deploy $fn --project-ref $PROJECT --no-verify-jwt --yes
 done
 print "\n== The website"
 npm ci --no-audit --no-fund
