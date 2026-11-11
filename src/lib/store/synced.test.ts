@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Collection, DocName } from './backend';
 import { MemoryStorage } from './local';
-import { NOT_LOADED, NOT_SAVED, SyncedBackend, type Remote, type RemoteRow } from './synced';
+import { NOT_KEPT_HERE, NOT_LOADED, NOT_SAVED, NOT_SAVED_ANYWHERE, SyncedBackend, type Remote, type RemoteRow } from './synced';
 
 // The account on the shared server keeps a copy on the device, so the app works with no signal.
 
@@ -171,5 +171,69 @@ describe('records in an account, with a copy on the device', () => {
     remote.online = false;
     new SyncedBackend(remote, 'dw:u1', storage).listen('items', (items) => after.push(items));
     expect(after[0]).toEqual([]);
+  });
+
+  // A phone whose storage is full or blocked: the change must never be reported as saved when
+  // neither the phone nor the account holds it.
+  describe('when the phone refuses to store anything', () => {
+    class RefusingStorage extends MemoryStorage {
+      refuse = true;
+      override setItem(key: string, value: string) {
+        if (this.refuse) throw new Error('QuotaExceededError');
+        super.setItem(key, value);
+      }
+    }
+    function refusing() {
+      const remote = new FakeRemote();
+      const storage = new RefusingStorage();
+      const errors: string[] = [];
+      const backend = new SyncedBackend(remote, 'dw:u1', storage, (m) => errors.push(m));
+      return { remote, storage, errors, backend };
+    }
+
+    it('still shows the change, still sends it, and says it is in the account but not on this phone', async () => {
+      const { remote, errors, backend } = refusing();
+      const seen: { id: string; title?: string }[][] = [];
+      backend.listen<{ id: string; title?: string }>('items', (items) => seen.push(items));
+      await backend.save('items', { id: 'a', title: 'Council tax letter' });
+      expect(seen.at(-1)).toEqual([{ id: 'a', title: 'Council tax letter' }]);
+      expect(remote.rows.get('items')?.get('a')).toEqual({ id: 'a', title: 'Council tax letter' });
+      expect(backend.pending()).toBe(0);
+      expect(errors).toEqual([NOT_KEPT_HERE]);
+      expect(backend.deviceStorageFailed()).toBe(true);
+    });
+
+    it('with no signal as well, says plainly that it is not saved anywhere, and not that it is kept on this phone', async () => {
+      const { remote, errors, backend } = refusing();
+      remote.online = false;
+      await backend.save('items', { id: 'a', title: 'Typed offline on a full phone' });
+      expect(errors).toEqual([NOT_SAVED_ANYWHERE]);
+      expect(errors).not.toContain(NOT_SAVED);
+      expect(NOT_SAVED_ANYWHERE).toContain('not saved yet');
+      // It is still held while the app is open, and goes as soon as the account can be reached.
+      expect(backend.pending()).toBe(1);
+      remote.online = true;
+      await backend.flush();
+      expect(remote.rows.get('items')?.get('a')).toEqual({ id: 'a', title: 'Typed offline on a full phone' });
+      expect(backend.pending()).toBe(0);
+    });
+
+    it('does the same for a removal and for settings', async () => {
+      const { remote, errors, backend } = refusing();
+      remote.rows.set('items', new Map([['a', { id: 'a' }]]));
+      await backend.remove('items', 'a');
+      await backend.saveDoc('settings', { name: 'Sam' });
+      expect(remote.rows.get('items')?.has('a')).toBe(false);
+      expect(remote.docs.get('settings')).toEqual({ name: 'Sam' });
+      expect(errors).toEqual([NOT_KEPT_HERE, NOT_KEPT_HERE]);
+    });
+
+    it('says nothing extra once the phone stores things again', async () => {
+      const { storage, errors, backend } = refusing();
+      storage.refuse = false;
+      await backend.save('items', { id: 'a' });
+      await backend.flush();
+      expect(errors).toEqual([]);
+    });
   });
 });

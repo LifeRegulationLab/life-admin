@@ -5,7 +5,8 @@ import type { KeyValue } from './local';
  * Records in an account on the shared Life Regulation Lab server, with a copy on this device.
  *
  * The device copy is what the screens read, so the app opens and works with no signal. Every
- * change is written to the device first and put in a queue; the queue is sent in order when the
+ * change is written to the device first and put in a queue (and held in memory while the app is
+ * open, in case the device refuses the write); the queue is sent in order when the
  * server can be reached, and what the server holds is fetched again afterwards. A change that has
  * not been sent yet always wins over what the server says, so nothing typed offline is lost when
  * an older copy arrives.
@@ -37,11 +38,23 @@ type Listener = (value: unknown) => void;
 
 export const NOT_LOADED = 'Some records could not be loaded. Check your connection and reopen the app before relying on the totals.';
 export const NOT_SAVED = 'A change could not be saved to your account. It is kept on this phone and will be sent when there is a signal.';
+/** The phone refused to store it (full, or storage blocked) but the account has it. */
+export const NOT_KEPT_HERE = 'This phone could not store a change, because its storage is full or blocked. It was saved to your account. Free some space, then reopen the app.';
+/** Neither place has it yet. Said plainly, so nobody relies on a change that could vanish. */
+export const NOT_SAVED_ANYWHERE = 'A change is not saved yet. This phone could not store it and your account could not be reached. Keep the app open and connect to the internet, and it will be sent.';
 
 export class SyncedBackend implements Backend {
   readonly kind = 'shared' as const;
   private listeners = new Map<string, Set<Listener>>();
   private flushing: Promise<void> | null = null;
+  /**
+   * What is held while the app is open. The device's storage is a copy of this, written after
+   * every change. If the device refuses a write, this still has the change and the queue, so the
+   * change is still shown and still sent; it is only lost if the app closes before it is sent,
+   * and the person is told so.
+   */
+  private held = new Map<string, unknown>();
+  private storageFailed = false;
 
   constructor(
     private readonly remote: Remote,
@@ -58,22 +71,39 @@ export class SyncedBackend implements Backend {
   }
 
   private read<T>(name: string, fallback: T): T {
-    const raw = this.storage.getItem(this.key(name));
+    if (this.held.has(name)) return this.held.get(name) as T;
+    let raw: string | null = null;
+    try {
+      raw = this.storage.getItem(this.key(name));
+    } catch {
+      raw = null;
+    }
     if (raw === null) return fallback;
     try {
-      return JSON.parse(raw) as T;
+      const value = JSON.parse(raw) as T;
+      this.held.set(name, value);
+      return value;
     } catch {
       return fallback;
     }
   }
 
-  private write(name: string, value: unknown): void {
+  /** Writes the device copy. False when the device refused, so the caller can say so. */
+  private persist(name: string, value: unknown): boolean {
+    this.held.set(name, value);
     try {
       this.storage.setItem(this.key(name), JSON.stringify(value));
+      return true;
     } catch {
-      // A full device: the screen still shows the change, and the queue still tries to send it.
+      this.storageFailed = true;
+      return false;
     }
+  }
+
+  private write(name: string, value: unknown): boolean {
+    const kept = this.persist(name, value);
     for (const l of this.listeners.get(name) ?? []) l(value);
+    return kept;
   }
 
   private on(name: string, listener: Listener): () => void {
@@ -87,12 +117,13 @@ export class SyncedBackend implements Backend {
     return this.read<Op[]>('queue', []);
   }
 
-  private setQueue(ops: Op[]): void {
-    try {
-      this.storage.setItem(this.key('queue'), JSON.stringify(ops));
-    } catch {
-      // As above.
-    }
+  private setQueue(ops: Op[]): boolean {
+    return this.persist('queue', ops);
+  }
+
+  /** True once the device has refused to store something since the app was opened. */
+  deviceStorageFailed(): boolean {
+    return this.storageFailed;
   }
 
   /** How many changes are waiting to be sent. */
@@ -115,16 +146,16 @@ export class SyncedBackend implements Backend {
     const i = items.findIndex((x) => x.id === copy.id);
     if (i >= 0) items[i] = copy;
     else items.push(copy);
-    this.write(collection, items);
-    this.enqueue({ kind: 'put', collection, id: copy.id, data: copy });
+    const kept = this.write(collection, items);
+    await this.enqueue({ kind: 'put', collection, id: copy.id, data: copy }, kept);
   }
 
   async remove(collection: Collection, id: string) {
-    this.write(
+    const kept = this.write(
       collection,
       this.read<Identified[]>(collection, []).filter((x) => x.id !== id),
     );
-    this.enqueue({ kind: 'remove', collection, id });
+    await this.enqueue({ kind: 'remove', collection, id }, kept);
   }
 
   listenDoc<T>(name: DocName, onChange: (value: T | undefined) => void) {
@@ -136,20 +167,32 @@ export class SyncedBackend implements Backend {
 
   async saveDoc<T>(name: DocName, value: T) {
     const copy = clean(value);
-    this.write(`doc:${name}`, copy);
-    this.enqueue({ kind: 'doc', name, data: copy });
+    const kept = this.write(`doc:${name}`, copy);
+    await this.enqueue({ kind: 'doc', name, data: copy }, kept);
   }
 
   // Sending and fetching --------------------------------------------------------------------
 
-  private enqueue(op: Op): void {
+  /**
+   * Queues a change and tries to send it. `keptOnDevice` is whether the device stored the record
+   * itself. When the device stored both the record and the queue, the change is safe and sending
+   * carries on in the background. When it did not, sending is waited for, so that what the person
+   * is told is true: saved to the account, or not saved anywhere yet.
+   */
+  private async enqueue(op: Op, keptOnDevice: boolean): Promise<void> {
     // A later change to the same thing replaces an earlier one still waiting.
     const same = (o: Op) =>
       op.kind === 'doc'
         ? o.kind === 'doc' && o.name === op.name
         : o.kind !== 'doc' && o.collection === op.collection && o.id === op.id;
-    this.setQueue([...this.queue().filter((o) => !same(o)), op]);
-    void this.flush();
+    const queued = this.setQueue([...this.queue().filter((o) => !same(o)), op]);
+    if (keptOnDevice && queued) {
+      void this.flush();
+      return;
+    }
+    await this.flush();
+    const sent = !this.queue().some((o) => JSON.stringify(o) === JSON.stringify(op));
+    this.onError(sent ? NOT_KEPT_HERE : NOT_SAVED_ANYWHERE);
   }
 
   /** Sends what is waiting, oldest first. Stops at the first failure and keeps the rest. */
@@ -169,7 +212,8 @@ export class SyncedBackend implements Backend {
         else if (op.kind === 'remove') await this.remote.remove(op.collection, op.id);
         else await this.remote.putDoc(op.name, op.data);
       } catch {
-        this.onError(NOT_SAVED);
+        // With the device refusing writes, the caller says the fuller thing: not saved anywhere.
+        if (!this.storageFailed) this.onError(NOT_SAVED);
         return;
       }
       // Only this one is taken off: something may have joined the queue while it was sending,
@@ -187,7 +231,7 @@ export class SyncedBackend implements Backend {
       rows = await this.remote.list(collection);
     } catch {
       // No signal with a copy on the device is ordinary. With no copy, say so.
-      if (this.storage.getItem(this.key(collection)) === null) this.onError(NOT_LOADED);
+      if (!this.held.has(collection) && this.safeGet(collection) === null) this.onError(NOT_LOADED);
       return;
     }
     const byId = new Map<string, Identified>();
@@ -212,6 +256,14 @@ export class SyncedBackend implements Backend {
     }
   }
 
+  private safeGet(name: string): string | null {
+    try {
+      return this.storage.getItem(this.key(name));
+    } catch {
+      return null;
+    }
+  }
+
   /** When the signal is back, or the app comes to the front: send, then fetch everything again. */
   async sync(collections: readonly Collection[], docs: readonly DocName[]): Promise<void> {
     await this.flush();
@@ -220,6 +272,13 @@ export class SyncedBackend implements Backend {
 
   /** Removes the device copy, on sign-out or after deleting the account. */
   forget(collections: readonly Collection[], docs: readonly DocName[]): void {
-    for (const name of [...collections, ...docs.map((d) => `doc:${d}`), 'queue']) this.storage.removeItem(this.key(name));
+    for (const name of [...collections, ...docs.map((d) => `doc:${d}`), 'queue']) {
+      this.held.delete(name);
+      try {
+        this.storage.removeItem(this.key(name));
+      } catch {
+        // Nothing was stored there to remove.
+      }
+    }
   }
 }
