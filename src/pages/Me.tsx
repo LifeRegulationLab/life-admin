@@ -1,11 +1,10 @@
 import { useState } from 'react';
+import { accountKind, accountsOn, deleteEverything, openBilling, signOut } from '../lib/account';
 import { Link, useNavigate } from 'react-router';
 import { Card, Choice, Field, Page, Text } from '../components/ui';
 import { MossCard } from '../components/MossCard';
 import { ReadAloud } from '../components/voice';
 import { APP_FULL_NAME, APP_NAME } from '../lib/brand';
-import { firebaseConfigured } from '../lib/firebase/app';
-import { deleteEverything, openBilling, signOut } from '../lib/firebase/account';
 import { helperAvailable } from '../lib/helper/client';
 import { moss } from '../lib/moss/link';
 import type { ReadAloud as ReadAloudSetting, Settings, TextSize } from '../lib/model/types';
@@ -37,6 +36,12 @@ const READ: { code: ReadAloudSetting; text: string }[] = [
 ];
 
 /** The person's own settings, the account, and leaving. */
+/** Under "Signed in as", and above the delete button: what the account is and what deleting does. */
+export const OWN_ACCOUNT_NOTE = `This account is for ${APP_NAME} only. Your other Life Regulation Lab apps have their own, and are not affected by anything you do here.`;
+export const SHARED_ACCOUNT_NOTE = `This is your Life Regulation Lab account, the same sign-in as your other Life Regulation Lab apps. What you keep in ${APP_NAME} stays in ${APP_NAME}: the other apps cannot read it.`;
+export const OWN_DELETE_NOTE = `This deletes your ${APP_NAME} account and everything in it. Your other Life Regulation Lab apps are not touched.`;
+export const SHARED_DELETE_NOTE = `This deletes everything ${APP_NAME} holds for you. Your other Life Regulation Lab apps are not touched, and if you use one of them your sign-in stays so that app keeps working.`;
+
 export function Me() {
   const { data, saveSettings, user, device, saveItem, saveRenewal, saveBenefit, saveMoney, plus, paid } = useStore();
   const [billingNote, setBillingNote] = useState('');
@@ -87,7 +92,7 @@ export function Me() {
   const deleteAccount = async () => {
     if (!user) return;
     try {
-      await deleteEverything(user);
+      await deleteEverything();
       await moss.disconnect();
       await clear('photos');
       await clear('speech');
@@ -142,7 +147,7 @@ export function Me() {
         </label>
       </div></details>
 
-      {firebaseConfigured() && (onSale || plus) ? (
+      {accountsOn() && (onSale || plus) ? (
         <div id="plus">
           <Card className="flex flex-col gap-3">
             <h2 className="font-semibold">Dealt With Plus</h2>
@@ -220,12 +225,12 @@ export function Me() {
       <details className="card disclosure"><summary>Moss settings</summary><div className="form-section"><MossCard /></div></details>
 
       <details className="card disclosure"><summary>Account</summary><div className="form-section">
-        {!firebaseConfigured() ? (
+        {!accountsOn() ? (
           <p>Everything is kept on this phone. Accounts are not switched on in this version.</p>
         ) : user ? (
           <>
             <p>Signed in as {user.email}. Your things follow you to a new phone.</p>
-            <p className="muted text-sm">This account is for {APP_NAME} only. Your other Life Regulation Lab apps have their own, and are not affected by anything you do here.</p>
+            <p className="muted text-sm">{accountKind() === 'shared' ? SHARED_ACCOUNT_NOTE : OWN_ACCOUNT_NOTE}</p>
             <button type="button" className="btn self-start" onClick={() => void signOut()}>
               Sign out
             </button>
@@ -266,7 +271,7 @@ export function Me() {
           <div className="warnbox flex flex-col gap-2">
             <p>
               {sure === 'account'
-                ? `This deletes your ${APP_NAME} account and everything in it. Your other Life Regulation Lab apps are not touched. It cannot be undone. Save a copy first if you want one.${paid ? ' Cancel Plus first, using "Change card or cancel Plus" above, so the payments stop.' : ''}`
+                ? `${accountKind() === 'shared' ? SHARED_DELETE_NOTE : OWN_DELETE_NOTE} It cannot be undone. Save a copy first if you want one.${paid ? ' Cancel Plus first, using "Change card or cancel Plus" above, so the payments stop.' : ''}`
                 : 'This deletes everything this app keeps on this phone. It cannot be undone. Save a copy first if you want one.'}
             </p>
             <div className="flex gap-2">

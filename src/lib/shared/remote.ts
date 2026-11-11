@@ -10,7 +10,7 @@ import type { Remote, RemoteRow } from '../store/synced';
  * for each call. Sign-in itself is wired up separately.
  */
 
-export const SCHEMA = 'dealt_with';
+export const SCHEMA = 'dealt_with' as const;
 
 export interface RemoteConfig {
   url: string;

@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
+import { accountsOn, getShare, markShareOpened, replyToShare } from '../lib/account';
 import { useParams } from 'react-router';
 import { Area, Card, Text } from '../components/ui';
 import { APP_FULL_NAME } from '../lib/brand';
-import { firebaseConfigured } from '../lib/firebase/app';
-import { getShare, markShareOpened, replyToShare } from '../lib/firebase/account';
 import { smallDataUrl } from '../lib/store/photos';
 import type { Share } from '../lib/model/types';
 import { clock } from '../lib/time';
@@ -24,7 +23,7 @@ export function HelpWith() {
   const [done, setDone] = useState(false);
 
   useEffect(() => {
-    if (!code || !firebaseConfigured()) return;
+    if (!code || !accountsOn()) return;
     void getShare(code)
       .then((s) => {
         const live = s && s.expiresAt > clock() ? s : null;
@@ -47,7 +46,7 @@ export function HelpWith() {
 
   return (
     <main className="mx-auto flex max-w-xl flex-col gap-4 px-5 py-10">
-      {!firebaseConfigured() || share === null ? (
+      {!accountsOn() || share === null ? (
         <p>This link has ended or does not work. Ask the person who sent it for a new one.</p>
       ) : share === undefined ? (
         <p className="muted">Opening…</p>

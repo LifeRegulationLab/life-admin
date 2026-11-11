@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
 import { Layout } from './components/Layout';
-import { signInFirst } from './lib/firebase/app';
+import { signInFirst } from './lib/account';
 import { StoreProvider, useStore } from './lib/store/StoreProvider';
 import { Add, AddKind } from './pages/Add';
 import { StuckPage, WhereWasIPage } from './pages/Aids';

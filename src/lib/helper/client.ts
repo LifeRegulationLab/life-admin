@@ -1,4 +1,4 @@
-import { firebase, firebaseConfigured } from '../firebase/app';
+import { accountToken, accountsOn } from '../account';
 import type { Item, Settings, Understanding } from '../model/types';
 import { CANNOT_ANSWER, checkReply, gate } from './safety';
 
@@ -10,7 +10,7 @@ import { CANNOT_ANSWER, checkReply, gate } from './safety';
 const env = import.meta.env;
 
 export function helperAvailable(): boolean {
-  return env['VITE_HELPER_ON'] === 'true' && Boolean(env['VITE_HELPER_URL']) && firebaseConfigured();
+  return env['VITE_HELPER_ON'] === 'true' && Boolean(env['VITE_HELPER_URL']) && accountsOn();
 }
 
 export type HelperResult<T> = { ok: true; value: T } | { ok: false; text: string; support?: boolean };
@@ -31,9 +31,8 @@ interface Understood {
 }
 
 async function call(body: Record<string, unknown>): Promise<{ status: number; json: Record<string, unknown> } | undefined> {
-  const user = firebase().auth.currentUser;
-  if (!user) return { status: 401, json: { text: 'Sign in to use the helper.' } };
-  const token = await user.getIdToken();
+  const token = await accountToken();
+  if (!token) return { status: 401, json: { text: 'Sign in to use the helper.' } };
   try {
     const res = await fetch(String(env['VITE_HELPER_URL']), {
       method: 'POST',

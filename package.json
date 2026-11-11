@@ -15,7 +15,8 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "test": "vitest run",
-    "check": "tsc --noEmit && eslint . && vite build && vitest run"
+    "check": "tsc --noEmit && eslint . && vite build && vitest run",
+    "copy-functions": "node scripts/copy-functions.mjs"
   },
   "dependencies": {
     "@capacitor-firebase/authentication": "^8.5.2",
@@ -25,6 +26,7 @@
     "@capacitor/local-notifications": "^8.0.0",
     "@capacitor/share": "^8.0.3",
     "@fontsource-variable/inter": "^5.3.0",
+    "@supabase/supabase-js": "^2.119.0",
     "@tesseract.js-data/eng": "^1.0.0",
     "firebase": "^13.1.0",
     "pdf-lib": "^1.17.1",

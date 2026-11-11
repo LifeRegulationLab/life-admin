@@ -1,4 +1,4 @@
-import { firebase, firebaseConfigured } from './firebase/app';
+import { accountToken, accountsOn } from './account';
 import { get, put } from './store/blobs';
 
 /**
@@ -11,7 +11,7 @@ import { get, put } from './store/blobs';
 const env = import.meta.env;
 
 export function recordedVoiceAvailable(): boolean {
-  return Boolean(env['VITE_SPEECH_URL']) && firebaseConfigured();
+  return Boolean(env['VITE_SPEECH_URL']) && accountsOn();
 }
 
 async function key(text: string): Promise<string> {
@@ -46,12 +46,12 @@ async function fetchVoice(text: string, plus: boolean): Promise<Blob | undefined
   const kept = await get('speech', k);
   if (kept) return kept;
   if (!recordedVoiceAvailable() || !plus) return undefined;
-  const user = firebase().auth.currentUser;
-  if (!user) return undefined;
+  const token = await accountToken();
+  if (!token) return undefined;
   try {
     const res = await fetch(String(env['VITE_SPEECH_URL']), {
       method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${await user.getIdToken()}` },
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
       body: JSON.stringify({ text }),
     });
     if (!res.ok) return undefined;

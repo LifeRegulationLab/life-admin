@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
-import { firebaseConfigured } from '../../lib/firebase/app';
-import { createShare, listenShares, removeShare } from '../../lib/firebase/account';
+import { accountsOn, createShare, listenShares, removeShare } from '../../lib/account';
 import type { Item, Share, Step } from '../../lib/model/types';
 import { fmtDate } from '../../lib/papers/record';
 import { shareText } from '../../lib/shell';
@@ -28,7 +27,7 @@ export function useShares(): Share[] {
   const { user } = useStore();
   const [shares, setShares] = useState<Share[]>([]);
   useEffect(() => {
-    if (!user || !firebaseConfigured()) return;
+    if (!user || !accountsOn()) return;
     return listenShares(user.uid, setShares);
   }, [user]);
   return user ? shares : [];
@@ -50,7 +49,7 @@ export function ShareStep({ item, step }: { item: Item; step: Step }) {
   const [withPages, setWithPages] = useState(false);
   const [days, setDays] = useState<'3' | '7' | '14'>('7');
   const [msg, setMsg] = useState('');
-  const online = Boolean(user) && firebaseConfigured();
+  const online = Boolean(user) && accountsOn();
 
   const extract = withWords ? item.text.slice(0, 6000) : '';
   const facts = readFacts(item.text, new Date(item.createdAt));
