@@ -131,17 +131,51 @@ describe('Moss passing things on', () => {
     return { m, s };
   }
 
-  it('sends a task to Pace with only what was shown, and gets its id back', async () => {
-    const { m, s } = await connected([(c) => (c.url.endsWith('/rest/v1/moss_handovers') ? json([{ id: 'h1' }], 201) : undefined)]);
-    const id = await m.sendToPace({ title: '  Ring  the council ', minutes: 15, firstStep: 'Find the letter', ready: ['Reference 6001', ' '], readyMinutes: 5 });
-    expect(id).toBe('h1');
-    const sent = s.calls.find((c) => c.url.endsWith('/rest/v1/moss_handovers'));
-    expect(JSON.parse(String(sent?.init.body))).toEqual({ from_app: 'dealt-with', to_app: 'pace', kind: 'task', title: 'Ring the council', minutes: 15, first_step: 'Find the letter', ready: ['Reference 6001'], ready_minutes: 5 });
+  it('sends a task to Pace with only what was shown, under the id it was given', async () => {
+    const { m, s } = await connected([(c) => (c.url.includes('/rest/v1/moss_handovers') ? new Response(null, { status: 201 }) : undefined)]);
+    await m.sendToPace({ title: '  Ring  the council ', minutes: 15, firstStep: 'Find the letter', ready: ['Reference 6001', ' '], readyMinutes: 5, source: 'abc123def456ghi7' }, 'h1');
+    const sent = s.calls.find((c) => c.url.includes('/rest/v1/moss_handovers'));
+    expect(JSON.parse(String(sent?.init.body))).toEqual({ id: 'h1', from_app: 'dealt-with', to_app: 'pace', kind: 'task', title: 'Ring the council', minutes: 15, first_step: 'Find the letter', ready: ['Reference 6001'], ready_minutes: 5, source_ref: 'abc123def456ghi7' });
+  });
+
+  it('sending again uses the same id and asks the server to keep only one', async () => {
+    const { m, s } = await connected([(c) => (c.url.includes('/rest/v1/moss_handovers') ? new Response(null, { status: 201 }) : undefined)]);
+    await m.sendToPace({ title: 'Ring them' }, 'h1');
+    await m.sendToPace({ title: 'Ring them' }, 'h1');
+    const sent = s.calls.filter((c) => c.url.includes('/rest/v1/moss_handovers'));
+    expect(sent).toHaveLength(2);
+    for (const c of sent) {
+      expect(c.url).toMatch(/moss_handovers\?on_conflict=id$/);
+      expect((c.init.headers as Record<string, string>)['Prefer']).toContain('resolution=ignore-duplicates');
+      expect(JSON.parse(String(c.init.body)).id).toBe('h1');
+    }
+  });
+
+  it('never sends words as the way back: only an id', async () => {
+    const { m, s } = await connected([(c) => (c.url.includes('/rest/v1/moss_handovers') ? new Response(null, { status: 201 }) : undefined)]);
+    await m.sendToPace({ title: 'Ring them', source: 'Council tax letter, ref 6001' }, 'h2');
+    expect(JSON.parse(String(s.calls.at(-1)?.init.body))).not.toHaveProperty('source_ref');
+  });
+
+  it('tells sent, added, finished in Pace, not added and gone apart', async () => {
+    const rows = [
+      { id: 'a', status: 'pending', done_at: null },
+      { id: 'b', status: 'added', done_at: null },
+      { id: 'c', status: 'added', done_at: '2026-11-11T10:00:00Z' },
+      { id: 'd', status: 'declined', done_at: null },
+    ];
+    const { m } = await connected([(c) => (c.url.includes('moss_handovers?select=id,status,done_at') ? json(rows) : undefined)]);
+    expect(await m.paceProgress(['a', 'b', 'c', 'd', 'e'])).toEqual({ a: 'sent', b: 'added', c: 'finished', d: 'declined', e: 'gone' });
+  });
+
+  it('claims nothing about Pace when the server cannot be asked', async () => {
+    const { m } = await connected([(c) => (c.url.includes('moss_handovers?select') ? json({}, 500) : undefined)]);
+    expect(await m.paceProgress(['a'])).toBeUndefined();
   });
 
   it('will not send anything when Moss is not connected', async () => {
     const s = server([]);
-    await expect(new Moss(memoryStore(), s.send).sendToPace({ title: 'Ring them' })).rejects.toThrow('Connect Moss first');
+    await expect(new Moss(memoryStore(), s.send).sendToPace({ title: 'Ring them' }, 'h1')).rejects.toThrow('Connect Moss first');
     expect(s.calls).toHaveLength(0);
   });
 
